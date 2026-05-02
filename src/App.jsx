@@ -3,11 +3,18 @@ import reactLogo from './assets/react.svg'
 import viteLogo from './assets/vite.svg'
 import heroImg from './assets/hero.png'
 import './App.css'
+import CandidateCard from './components/CandidateCard'
 
 function App() {
   return (
     <div>
-      <h1>Voting Dashboard</h1>
+        <h1>Voting Dashboard</h1>
+        <CandidateCard
+          name=""
+          office=""
+          party=""
+          state=""
+        />
     </div>
   )
 }
