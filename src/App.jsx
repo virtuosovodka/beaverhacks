@@ -4,6 +4,7 @@ import viteLogo from './assets/vite.svg'
 import heroImg from './assets/hero.png'
 import './App.css'
 import CandidateCard from './components/CandidateCard'
+import NewsFeed from './components/NewsFeed'
 
 function App() {
   const [zip, setZip] = useState("")
@@ -41,6 +42,8 @@ function App() {
           </div>
         </div>
       )}
+
+      <NewsFeed candidateName = ""/>
     </div>
   )
 }
