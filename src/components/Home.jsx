@@ -2,29 +2,28 @@ import { useState } from 'react'
 import { useNavigate } from "react-router-dom"
 
 function Home() {
-  const [zip, setZip] = useState("")
   const [submitted, setSubmitted] = useState(false)
-  const navigate = useNavigate()
   const [error, setError] = useState("")
-
-  function handleSubmit() {
-    if (zip.length === 5){
-      setSubmitted(true)
-      console.log("submitted!")
-    } else {
-        setError("Please enter a valid 5-digit zip code")
-    }
-  }
+  const navigate = useNavigate()
+  const [address, setAddress] = useState("");
   
+    function handleSubmit() {
+        if (address.length > 5) {
+        setError("")
+        setSubmitted(true)
+    } else {
+        setError("Please enter your full address")
+    }}
+
   return (
     <div>
-      {/* enter in zip code */}
+      {/* enter in addrfess  */}
       <h1>Know Before You Vote</h1>
-      <input placeholder = "Enter your zip code" value={zip} onChange={(e) => setZip(e.target.value)} maxLength={5}/>
+      <input placeholder="Enter your full address" value={address} onChange={(e) => { setAddress(e.target.value); setError("")}} style={{width:"400px", padding:"8px"}}/>
       <button onClick={handleSubmit}>Go</button> 
       {error && <p>{error}</p>}
 
-      {/*After zip is submitted*/}
+      {/*After address is submitted*/}
       {submitted && (
         <div>
           {/*Why it matters*/}
