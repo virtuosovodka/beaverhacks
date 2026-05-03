@@ -8,6 +8,7 @@ type Candidate = {
   party_full: string
   incumbent_challenge_full: string
   district: string
+  top_issues: string[]
 }
 
 type Divisions = {
@@ -29,8 +30,9 @@ function ElectionContent() {
   useEffect(() => {
     async function fetchData() {
       try {
-        const divRes = await fetch(`/api/divisions?address=${encodeURIComponent(address ?? "")}`)
-        const divData = await divRes.json()
+        const divRes = await fetch(`/district?address=${encodeURIComponent(address ?? "")}`)
+        const divData = (await divRes.json())[0]
+        //console.log("Division data:", divData)
 
         const state = divData.normalizedInput.state
         let district = "00"
@@ -44,23 +46,29 @@ function ElectionContent() {
 
         setDivisions({ state, district })
 
-        const houseRes = await fetch(
-          `https://api.open.fec.gov/v1/candidates/?state=${state}&district=${district}&office=H&election_year=2026&api_key=${process.env.NEXT_PUBLIC_FEC_API_KEY}&per_page=20`
-        )
-        const houseData = await houseRes.json()
-        setHouseCandidates(houseData.results)
+        const electionData = await fetch(`/api/${state}${district}`).then(res => res.json())
+        console.log("Election data:", electionData)
 
-        const senateRes = await fetch(
-          `https://api.open.fec.gov/v1/candidates/?state=${state}&office=S&election_year=2026&api_key=${process.env.NEXT_PUBLIC_FEC_API_KEY}&per_page=20`
-        )
-        const senateData = await senateRes.json()
-        setSenateCandidates(senateData.results)
+        setHouseCandidates(electionData.house)
+        setSenateCandidates(electionData.senate)
 
-        if (houseData.results.length === 0 && senateData.results.length === 0) {
-          setError("No candidates found. Try including your full city and state.")
-          setLoading(false)
-          return
-        }
+        // const houseRes = await fetch(
+        //   `https://api.open.fec.gov/v1/candidates/?state=${state}&district=${district}&office=H&election_year=2026&api_key=${process.env.FEC_API_KEY}&per_page=20`
+        // )
+        // const houseData = await houseRes.json()
+        // setHouseCandidates(houseData.results)
+
+        // const senateRes = await fetch(
+        //   `https://api.open.fec.gov/v1/candidates/?state=${state}&office=S&election_year=2026&api_key=${process.env.FEC_API_KEY}&per_page=20`
+        // )
+        // const senateData = await senateRes.json()
+        // setSenateCandidates(senateData.results)
+
+        // if (houseData.results.length === 0 && senateData.results.length === 0) {
+        //   setError("No candidates found. Try including your full city and state.")
+        //   setLoading(false)
+        //   return
+        // }
 
         setLoading(false)
       } catch (err) {
@@ -92,7 +100,7 @@ function ElectionContent() {
         {senateCandidates.map((c, i) => (
           <div key={i} className="card" style={{ cursor: "pointer" }} onClick={() => router.push(`/candidate?id=${c.candidate_id}`)}>
             <h3>{c.name}</h3>
-            <p>{c.party_full} -- {c.incumbent_challenge_full}</p>
+            <p>{c.top_issues.join(", ")} -- {c.incumbent_challenge_full}</p>
           </div>
         ))}
       </div>
@@ -102,7 +110,7 @@ function ElectionContent() {
         {houseCandidates.map((c, i) => (
           <div key={i} className="card" style={{ cursor: "pointer" }} onClick={() => router.push(`/candidate?id=${c.candidate_id}`)}>
             <h3>{c.name}</h3>
-            <p>{c.party_full} -- {c.incumbent_challenge_full}</p>
+            <p>{c.top_issues.join(", ")} -- {c.incumbent_challenge_full}</p>
           </div>
         ))}
       </div>
