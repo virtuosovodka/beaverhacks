@@ -2,6 +2,7 @@ import { get } from 'http';
 import { platform } from 'os';
 import { encode } from 'punycode';
 import { createClient } from 'redis';
+const { tavily } = require('@tavily/core');
 
 export async function GET(
     // Access with /api/OR02, for example.
@@ -34,7 +35,7 @@ export async function GET(
 
     // Get news data + platform data for all candidates from news API and LLM api
     const candidateData = await getCandidateData(candidates);
-    console.log('Candidate data with news and platform info:', candidateData);
+    console.log('Candidate platform info:', candidateData);
 
     // Finish result object and return it as JSON
     const result = getFormattedResult(houseData, senateData, committeeData, candidateData);
@@ -43,7 +44,17 @@ export async function GET(
 }
 
 function sanitizeJSON(str: string) {
-    return str.replace(/[\r\n\t]/g, '').trim();
+    // Often returned without proper anything really. The most reliable part is that it will have ["issue1", "issue2"] and ["position1", "position2"] lists, so just look for those.
+    const topIssuesMatch = str.match(/"?top_issues"?\s*:\s*(\[[^\]]*\])/);
+    const positionsMatch = str.match(/"?positions"?\s*:\s*(\[[^\]]*\])/);
+
+    // TODO: make this title case lol
+
+    if (topIssuesMatch && positionsMatch) {
+        return `{"top_issues": ${topIssuesMatch[1]}, "positions": ${positionsMatch[1]}}`;
+    }
+
+    return "{}";
 }
 
 function isValidJSON(str: string) {
@@ -75,16 +86,15 @@ function getFormattedResult(houseData: any, senateData: any, committeeData: any[
     - total disbursements
     - total receipts
     - list of committees they are associated with (names)
-    - news articles about the candidate (title, source, date, url)
-    - platform data about the candidate TODO: make this something formatted and structured, not just raw LLM output
+    - platform data about the candidate
     */
 
     if (houseData && houseData[0].results) {
         houseData[0].results.forEach((candidate: any) => {
             const candidateCommittees = committeeData.filter(committee => candidate['committee_ids'] && candidate['committee_ids'].includes(committee['committee_id'])).map(committee => committee['name']);
-
-            const candidateNews = candidateData[candidate['candidate_id']]?.news || [];
-            const candidatePlatform = sanitizeJSON(candidateData[candidate['candidate_id']]?.platform || "{}");
+            const candidateDataEntry = candidateData.find(entry => entry[0].candidateId === candidate['candidate_id'])[0];
+            console.log(`Candidate ${candidate['candidate_name']} data entry:`, candidateDataEntry);
+            const candidatePlatform = sanitizeJSON(candidateDataEntry?.platform.answer || "{}");
             const platformParsed = isValidJSON(candidatePlatform) ? JSON.parse(candidatePlatform) : {};
 
             const top_issues = platformParsed.top_issues || [];
@@ -97,12 +107,6 @@ function getFormattedResult(houseData: any, senateData: any, committeeData: any[
                 total_disbursements: candidate['total_disbursements'],
                 total_receipts: candidate['total_receipts'],
                 committees: candidateCommittees,
-                news: candidateNews.map((article: any) => ({
-                    title: article.title,
-                    source: article.source_name,
-                    date: article.pubDate,
-                    url: article.link,
-                })),
                 top_issues: top_issues,
                 positions: positions,
             };
@@ -115,8 +119,7 @@ function getFormattedResult(houseData: any, senateData: any, committeeData: any[
             const candidateCommittees = committeeData.filter(committee => candidate['committee_ids'] && candidate['committee_ids'].includes(committee['committee_id'])).map(committee => committee['name']);
             const candidateDataEntry = candidateData.find(entry => entry[0].candidateId === candidate['candidate_id'])[0];
             console.log(`Candidate ${candidate['candidate_name']} data entry:`, candidateDataEntry);
-            const candidateNews = candidateDataEntry?.news || [];
-            const candidatePlatform = sanitizeJSON(candidateDataEntry?.platform.content || "{}");
+            const candidatePlatform = sanitizeJSON(candidateDataEntry?.platform.answer || "{}");
             const platformParsed = isValidJSON(candidatePlatform) ? JSON.parse(candidatePlatform) : {};
 
             const top_issues = platformParsed.top_issues || [];
@@ -129,12 +132,6 @@ function getFormattedResult(houseData: any, senateData: any, committeeData: any[
                 total_disbursements: candidate['total_disbursements'],
                 total_receipts: candidate['total_receipts'],
                 committees: candidateCommittees,
-                news: candidateNews.map((article: any) => ({
-                    title: article.title,
-                    source: article.source_name,
-                    date: article.pubDate,
-                    url: article.link,
-                })),
                 top_issues: top_issues,
                 positions: positions,
             };
@@ -147,6 +144,7 @@ function getFormattedResult(houseData: any, senateData: any, committeeData: any[
 
 async function getCandidateData(candidates: [string, string][]) {
     const client = createClient();
+    client.on('error', err => console.log('Redis Client Error', err));
     await client.connect();
 
     const candidateData = [];
@@ -164,19 +162,7 @@ async function getCandidateData(candidates: [string, string][]) {
         console.log('Cache miss for candidate IDs:', missingCandidateIds);
         // Fetch data for missing candidate IDs and cache it
 
-        // Fetch news articles about each candidate
-        const newsData: Record<string, any[]> = {};
-
-        for (const [candidateId, candidateName] of candidates) {
-            if (!missingCandidateIds.includes(candidateId)) {
-                continue; // Skip candidates that are already cached
-            }
-            console.log(`Fetching news for candidate ${candidateName} (ID: ${candidateId})`);
-            const request = `https://api.worldnewsapi.com/search-news/?text=${encodeURIComponent(candidateName)}&api-key=${process.env.NEWS_API_KEY}`;
-            const response = await fetch(request);
-            const data = await response.json();
-            newsData[candidateId] = data.news; // Store articles for the candidate
-        }
+        const tavilyClient = tavily({ apiKey: process.env.TAVILY_API_KEY });
 
         const candidatePlatformData: Record<string, any> = {};
 
@@ -185,37 +171,11 @@ async function getCandidateData(candidates: [string, string][]) {
             if (!missingCandidateIds.includes(candidateId)) {
                 continue; // Skip candidates that are already cached
             }
-            const articles = newsData[candidateId];
-            console.log('Articles:', articles);
-            console.log(`Processing candidate ${candidateName} with ${articles.length} articles for platform data extraction.`);
-            const articlesContent = articles.map((article: any) => `${article.title}\n${article.text}`).join('\n\n');
 
-            const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
-                },
-                body: JSON.stringify({
-                    model: 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free',
-                    messages: [
-                        {
-                            role: 'user',
-                            content: `You will be given a series of news articles covering ${candidateName}. Output a valid JSON object, with no additional formatting or text, following this format:
-                            {
-                            "top_issues": [],
-                            "positions": []
-                            }
-                            Where you identify three of the candidate's most important issues (in three words or less), and some positions they hold for a future office (partial sentences, starting with verbs). The issues and positions are not necessarily related. Here are the articles` + articlesContent,
-                        }
-                    ],
-                    reasoning: { enabled: false }
-                })
+            const platformData = await tavilyClient.search(`Find information on the political platform of ${candidateName}, returning a JSON object with the lists "top_issues" (short keywords) and "positions" (partial sentences, starting with verbs).`, {
+                searchDepth: "basic",
+                includeAnswer: "advanced",
             });
-
-            const result = await response.json();
-            console.log('LLM response:', result);
-            const platformData = result.choices[0].message;
 
             candidatePlatformData[candidateId] = platformData;
         }
@@ -224,7 +184,6 @@ async function getCandidateData(candidates: [string, string][]) {
         for (const candidateId of missingCandidateIds) {
             const data = {
                 candidateId: candidateId,
-                news: newsData[candidateId],
                 platform: candidatePlatformData[candidateId],
             };
             candidateData.push(data);

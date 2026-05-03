@@ -9,6 +9,7 @@ type Candidate = {
   incumbent_challenge_full: string
   district: string
   top_issues: string[]
+  positions: string[]
 }
 
 type Divisions = {
@@ -100,7 +101,7 @@ function ElectionContent() {
         {senateCandidates.map((c, i) => (
           <div key={i} className="card" style={{ cursor: "pointer" }} onClick={() => router.push(`/candidate?id=${c.candidate_id}`)}>
             <h3>{c.name}</h3>
-            <p>{c.top_issues.join(", ")} -- {c.incumbent_challenge_full}</p>
+            <p>{c.top_issues.join(", ")} -- {c.positions.join(", ")}</p>
           </div>
         ))}
       </div>
@@ -110,7 +111,7 @@ function ElectionContent() {
         {houseCandidates.map((c, i) => (
           <div key={i} className="card" style={{ cursor: "pointer" }} onClick={() => router.push(`/candidate?id=${c.candidate_id}`)}>
             <h3>{c.name}</h3>
-            <p>{c.top_issues.join(", ")} -- {c.incumbent_challenge_full}</p>
+            <p>{c.top_issues.join(", ")} -- {c.positions.join(", ")}</p>
           </div>
         ))}
       </div>
