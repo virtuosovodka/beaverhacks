@@ -3,6 +3,9 @@
 import { useState } from "react"
 import { useRouter} from "next/navigation"
 import Image from "next/image";
+import { ComposableMap, Geographies, Geography, createCoordinates } from "@vnedyalk0v/react19-simple-maps";
+import { validateGeographyData, validateGeographyUrl } from "@vnedyalk0v/react19-simple-maps/utils";
+import geoData from "../public/us-districts.json";
 
 export default function Home() {
   // objects for address, error, and navigation tool 
@@ -31,6 +34,29 @@ export default function Home() {
       </div>
       <div className="flex flex-col flex-1 items-center justify-center font-serif">
         <h1 className="text-4xl">Understand what's on your ballot.</h1>
+        <ComposableMap 
+          projection="geoMercator"
+          projectionConfig={{
+            scale: 250,
+            center: createCoordinates(-96, 38),
+          }}
+          width={500}
+          height={150}
+        >
+          <Geographies geography={geoData}>
+            {({ geographies }) =>
+              geographies.map((geo, i) => (
+                <Geography
+                  key={i}
+                  geography={geo}
+                  fill="#EAEAEC"
+                  stroke="#000000"
+                  strokeWidth={0.25}
+                />
+              ))
+            }
+          </Geographies>
+        </ComposableMap>
         <input type="text" 
           placeholder="Enter your address..."
           value={address}

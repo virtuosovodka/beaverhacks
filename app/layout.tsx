@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import { APIProvider } from "@vis.gl/react-google-maps";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -28,9 +27,7 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <APIProvider apiKey={process.env.GOOGLE_MAPS_API_KEY!}>
-        <body className="min-h-full flex flex-col">{children}</body>
-      </APIProvider>
+      <body className="min-h-full flex flex-col">{children}</body>
     </html>
   );
 }
