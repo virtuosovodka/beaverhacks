@@ -43,7 +43,7 @@ export default function Home() {
         // create the autocomplete element restricted to US street addresses
         const placeAutocomplete = new PlaceAutocompleteElement({
           componentRestrictions: { country: "us" }, // only us
-          types: ["address"],                        // street addy
+          types: ["address"],                       // street addy
         })
 
         containerRef.current.appendChild(placeAutocomplete)
@@ -51,10 +51,11 @@ export default function Home() {
         console.log("autocomplete appended:", containerRef.current.innerHTML)
 
         // user picks suggestion, integrate it into react state
-        placeAutocomplete.addEventListener("gmp-placeselect", async (e: any) => {
+        placeAutocomplete.addEventListener("gmp-select", async (e: any) => {
           const place = e.placePrediction.toPlace()
           await place.fetchFields({ fields: ["formattedAddress"] })
           const formatted = place.formattedAddress
+          console.log("place selected:", formatted)
           if (formatted) {
             addressRef.current = formatted  // set ref first so handleSubmit sees it immediately
             setAddress(formatted)
@@ -137,20 +138,22 @@ export default function Home() {
           </Geographies>
         </ComposableMap>
 
-        {/* Container where PlaceAutocompleteElement gets injected by useEffect */}
-        <div
-          ref={containerRef}
-          onKeyDown={handleKeyDown}
-          className="w-full max-w-md mt-4"
-        ></div>
+        <div className="flex flex-col">
+          {/* Container where PlaceAutocompleteElement gets injected by useEffect */}
+          <div
+            ref={containerRef}
+            onKeyDown={handleKeyDown}
+            className="w-full max-w-md mt-4"
+          ></div>
 
-        <button
-          onClick={handleSubmit}
-          className="bg-stone-800 font-sans text-zinc-200 px-4 py-2 rounded-md mt-4"
-        >
-          Get My Ballot
-        </button>
-        {error && <p className="text-red-500 mt-2">{error}</p>}
+          <button
+            onClick={handleSubmit}
+            className="bg-stone-800 font-sans text-zinc-200 px-4 py-2 rounded-md mt-4"
+          >
+            Get My Ballot
+          </button>
+          {error && <p className="text-red-500 mt-2">{error}</p>}
+        </div>
       </div>
     </>
   )
