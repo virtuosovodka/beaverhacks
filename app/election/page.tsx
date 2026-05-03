@@ -3,6 +3,7 @@ import { useEffect, useState, Suspense } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { quizNext, quizResults, QuizState } from "../lib/quiz"
 import { QuizModal } from "../quiz/quizmodal"
+import { formatCandidateName } from "../lib/utils"
 
 export type Candidate = {
   candidate_id: string
@@ -74,8 +75,8 @@ function ElectionContent() {
   function startQuiz(candidates: Candidate[]) {
     const quizState: QuizState = {
       candidatePositions: candidates.map(c => c.positions),
-      scores: candidates.map(() => Array(candidates[0].positions.length).fill(0)),
-      opportunities: candidates.map(() => Array(candidates[0].positions.length).fill(0)),
+      scores: candidates.map((candidate) => Array(candidate.positions.length).fill(0)),
+      opportunities: candidates.map((candidate) => Array(candidate.positions.length).fill(0)),
       currentQuestion: [[0, 0], [1, 0]],
       currentAnswer: null,
       asked: 0
@@ -105,7 +106,7 @@ function ElectionContent() {
       </div>
       <div className="flex flex-col items-start justify-start font-serif p-4 pr-32 pl-32">
         <div className="flex flex-col gap-5 mt-8 w-full">
-          <h2 className="text-3xl font-bold font-sans">U.S. Senate</h2>
+          <h2 className="text-3xl font-bold font-sans">U.S. Senate</h2><button onClick={() => startQuiz(senateCandidates)} className="ml-4 text-sm font-sans text-gray-500 hover:text-gray-700 transition-colors">Take the Quiz</button>
           {/*check for if there actually is little man running*/}
           {senateCandidates.length > 0 ? (
             senateCandidates.map((c, i) => (
@@ -117,7 +118,7 @@ function ElectionContent() {
 
         </div>
         <div className="flex flex-col gap-5 mt-8 w-full">
-          <h2 className="text-3xl font-bold font-sans">U.S. House of Representatives</h2>
+          <h2 className="text-3xl font-bold font-sans">U.S. House of Representatives</h2><button onClick={() => startQuiz(houseCandidates)} className="ml-4 text-sm font-sans text-gray-500 hover:text-gray-700 transition-colors">Take the Quiz</button>
           {houseCandidates.length > 0 ? (
             houseCandidates.map((c, i) => (
                 <CandidateCard key={i} candidate={c} onClick={() => router.push(`/candidate?data=${encodeURIComponent(JSON.stringify(c))}`)} />
@@ -146,7 +147,7 @@ function CandidateCard({ candidate, onClick }: { candidate: Candidate, onClick?:
       className="cursor-pointer flex w-full flex-row items-center gap-4 p-4 border border-gray-300 rounded-md hover:bg-stone-300 transition-colors"
       onClick={onClick}
     >
-      <h3 className="font-sans text-md font-bold">{candidate.name}</h3>
+      <h3 className="font-sans text-md font-bold">{formatCandidateName(candidate.name)}</h3>
       <p>{candidate.top_issues.join(", ")}</p>
     </div>
   )
