@@ -4,6 +4,7 @@ import { useSearchParams, useRouter } from "next/navigation"
 import { quizNext, quizResults, QuizState } from "../lib/quiz"
 import { QuizModal } from "../quiz/quizmodal"
 import { formatCandidateName } from "../lib/utils"
+import { Logo } from "../page";
 
 // shape of a candidate from /api/[district]
 export type Candidate = {
@@ -65,8 +66,7 @@ function LoadingScreen() {
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen gap-8 px-8">
-      <button className="text-3xl font-bold font-sans">Electable</button>
-
+      <Logo />
       <div className="flex flex-col items-center gap-4 max-w-md w-full">
         <p className="font-sans font-medium text-lg">Loading your ballot...</p>
 
@@ -215,7 +215,6 @@ function ElectionContent() {
     <>
       {/* header */}
       <div className="flex flex-col items-center justify-center font-sans p-8 w-full">
-        <button onClick={() => router.push("/")} className="text-3xl font-bold">Electable</button>
       </div>
 
       {/* state + district label */}

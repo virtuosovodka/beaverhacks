@@ -12,6 +12,7 @@ import { geoPath, geoMercator } from "d3-geo"
 import districtData from "../public/us-districts.json"
 import stateData    from "../public/us-states.json"
 import type { FeatureCollection } from "geojson"
+import Image from "next/image"
 
 declare global {
   interface Window { google: any }
@@ -158,10 +159,7 @@ export default function Home() {
 
   return (
     <>
-      <div className="flex flex-col items-center justify-center font-sans p-4">
-        <h1 className="text-3xl font-bold">Electable</h1>
-      </div>
-
+      <Logo />
       <div className="flex flex-col flex-1 items-center justify-center font-serif">
         <h1 className="text-4xl font-sans font-bold">Understand what&apos;s on your ballot.</h1>
 
@@ -282,5 +280,14 @@ export default function Home() {
         {error && <p className="text-red-500 mt-2">{error}</p>}
       </div>
     </>
+  )
+}
+
+export function Logo() {
+  return (
+    <div className="flex flex-row items-center justify-center font-sans p-4">
+      <Image src="/logo.png" alt="logo" width={32} height={32}></Image>
+      <h1 className="text-3xl font-bold">Electable</h1>
+    </div>
   )
 }
