@@ -2,7 +2,7 @@ import { get } from 'http';
 import { platform } from 'os';
 import { encode } from 'punycode';
 import { createClient } from 'redis';
-const { tavily } = require('@tavily/core');
+import { tavily } from '@tavily/core';
 
 export async function GET(
     // Access with /api/OR02, for example.

@@ -1,5 +1,6 @@
 'use client'
 import { useState } from 'react';
+import { getPoliticalMatches } from '../actions';
 
 const API_KEY = process.env.NEXT_PUBLIC_OPENROUTER_KEY;
 
@@ -164,29 +165,11 @@ export default function Quiz() {
     `;
 
     try {
-      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${API_KEY}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          model: "google/gemma-3-4b-it:free",
-          messages: [
-            { role: "system", content: "You are a precise data extraction API. Output raw, valid JSON only." },
-            { role: "user", content: promptText }
-          ],
-          temperature: 0.2
-        })
-      });
-
-      if (!response.ok) throw new Error(`API error: ${response.status}`);
+      // MAGIC: Just call the server action! No fetch, no URLs, no 405s.
+      const jsonResponse = await getPoliticalMatches(promptText);
       
-      const jsonResponse = await response.json();
-      console.log("API response:", JSON.stringify(jsonResponse));
       const content = jsonResponse.choices[0].message.content;
       const clean = content.replace(/```json|```/g, '').trim();
-      console.log("Cleaned content:", clean);
       const parsedData: Results = JSON.parse(clean);
       
       setResults(parsedData);
