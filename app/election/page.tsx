@@ -98,7 +98,8 @@ function LoadingScreen() {
 
 function ElectionContent() {
   const searchParams = useSearchParams()
-  const address = searchParams.get("address")
+  const address  = searchParams.get("address")
+  const district = searchParams.get("district") 
   const router = useRouter()
 
   const [divisions,        setDivisions]        = useState<Divisions | null>(null)
@@ -110,6 +111,22 @@ function ElectionContent() {
   const [error,            setError]            = useState("")
 
   useEffect(() => {
+
+    async function fetchDataFromDistrict() {
+    try {
+      const state = district!.slice(0, 2)
+      const distNum = district!.slice(2)
+      setDivisions({ state, district: distNum })
+      const electionData = await fetch(`/api/${district}`).then(res => res.json())
+      setHouseCandidates(electionData.house)
+      setSenateCandidates(electionData.senate)
+      setLoading(false)
+    } catch (err) {
+      setError("Failed to load election data")
+      setLoading(false)
+    }
+  }
+
     async function fetchData() {
     try {
         // retry up to 3 times in case the route isn't ready on first navigation
@@ -155,7 +172,11 @@ function ElectionContent() {
     }
     }
     // force a fresh fetch every time the address changes
-    if (address) {
+    if (district) {
+      setLoading(true)
+      setError("")
+      fetchDataFromDistrict()
+    } else if (address) {
       setLoading(true)
       setError("")
       fetchData()
