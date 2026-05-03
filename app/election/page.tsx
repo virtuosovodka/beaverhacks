@@ -206,7 +206,7 @@ function ElectionContent() {
 
       <div className="flex flex-col items-start justify-start font-serif p-4 pr-32 pl-32">
         <div className="flex flex-col gap-5 w-full">
-          <div className="flex items-center gap-4">
+          <div className="flex flex-row justify-between gap-4">
             <h2 className="text-3xl font-bold font-sans">U.S. Senate</h2>
             <QuizButton onClick={() => startQuiz(senateCandidates)} />
           </div>
@@ -222,7 +222,7 @@ function ElectionContent() {
 
         {/* house candidates */}
         <div className="flex flex-col gap-5 mt-8 w-full">
-          <div className="flex items-center gap-4">
+          <div className="flex flex-row justify-between gap-4">
             <h2 className="text-3xl font-bold font-sans">U.S. House of Representatives</h2>
             <QuizButton onClick={() => startQuiz(houseCandidates)} />
           </div>
@@ -238,12 +238,12 @@ function ElectionContent() {
       </div>
 
       {/* quiz modal — only visible when quizState is set */}
-  <QuizModal 
-    candidates={quizCandidates} 
-    quizState={quizState} 
-    answer={quizUpdateHandler}
-    onClose={() => setQuizState(null)}  // ← this resets state which closes the modal
-  />
+      <QuizModal 
+        candidates={quizCandidates} 
+        quizState={quizState} 
+        answer={quizUpdateHandler}
+        onClose={() => setQuizState(null)}  // ← this resets state which closes the modal
+      />
     </>
   )
 }
