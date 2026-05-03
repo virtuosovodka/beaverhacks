@@ -2,6 +2,7 @@
 // need next client to have interactive ui components in browser
 
 import { Suspense } from "react"
+import { formatCandidateName } from "../lib/utils"
 import { useSearchParams, useRouter } from "next/navigation"
 
 // Shape of candidate data passed from election page via URL query param
@@ -65,7 +66,7 @@ function CandidateContent() {
 
         {/* NAME + PARTY */}
         <div>
-          <h1 className="text-4xl font-bold font-sans">{candidate.name}</h1>
+            <h1 className="text-4xl font-bold font-sans">{formatCandidateName(candidate.name)}</h1>
           <p className="text-gray-500 mt-1">{candidate.party} — {candidate.incumbent_challenge_full}</p>
         </div>
 

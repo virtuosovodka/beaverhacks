@@ -147,7 +147,8 @@ function CandidateCard({ candidate, onClick }: { candidate: Candidate, onClick?:
       className="cursor-pointer flex w-full flex-row items-center gap-4 p-4 border border-gray-300 rounded-md hover:bg-stone-300 transition-colors"
       onClick={onClick}
     >
-      <h3 className="font-sans text-md font-bold">{formatCandidateName(candidate.name)}</h3>
+    <h3 className="font-sans text-md font-bold">{formatCandidateName(candidate.name)}</h3>
+
       <p>{candidate.top_issues.join(", ")}</p>
     </div>
   )
