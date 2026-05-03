@@ -1,110 +1,147 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { useRouter } from "next/navigation"
-import { ComposableMap, Geographies, Geography, createCoordinates } from "@vnedyalk0v/react19-simple-maps"
-import geoData from "../public/us-districts.json"
+import {
+  ComposableMap,
+  Geographies,
+  Geography,
+  createCoordinates,
+} from "@vnedyalk0v/react19-simple-maps"
+import { geoPath, geoMercator } from "d3-geo"
+import districtData from "../public/us-districts.json"
+import stateData    from "../public/us-states.json"
+import type { FeatureCollection } from "geojson"
 
 declare global {
-  interface Window {
-    google: any
+  interface Window { google: any }
+}
+
+const DISTRICT_COLORS = [
+  "#4E79A7","#F28E2B","#E15759","#76B7B2","#59A14F",
+  "#EDC948","#B07AA1","#FF9DA7","#9C755F","#BAB0AC",
+]
+
+const MAP_WIDTH  = 800
+const MAP_HEIGHT = 400
+
+function buildBaseProjection() {
+  return geoMercator()
+    .scale(130)
+    .center([-96, 38])
+    .translate([MAP_WIDTH / 2, MAP_HEIGHT / 2])
+}
+
+function computeZoomForState(stateFips: string) {
+  const features = (districtData as FeatureCollection).features.filter(
+    (f) => (f.properties as any).STATEFP20 === stateFips
+  )
+  if (!features.length) return { zoom: 1, center: [-96, 38] as [number, number] }
+
+  const proj    = buildBaseProjection()
+  const pathGen = geoPath(proj)
+
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+  for (const f of features) {
+    const b = pathGen.bounds(f as any)
+    if (!b) continue
+    minX = Math.min(minX, b[0][0]); minY = Math.min(minY, b[0][1])
+    maxX = Math.max(maxX, b[1][0]); maxY = Math.max(maxY, b[1][1])
   }
+
+  const cx = (minX + maxX) / 2
+  const cy = (minY + maxY) / 2
+  const [lon, lat] = proj.invert!([cx, cy]) as [number, number]
+
+  const scaleX = (MAP_WIDTH  * 0.75) / (maxX - minX)
+  const scaleY = (MAP_HEIGHT * 0.75) / (maxY - minY)
+
+  return { zoom: Math.min(scaleX, scaleY), center: [lon, lat] as [number, number] }
 }
 
 export default function Home() {
-  // objects for address, error, and navigation tool
-  const [address, setAddress] = useState("")
-  const [error,   setError]   = useState("")
+  const [address,      setAddress]      = useState("")
+  const [error,        setError]        = useState("")
+  const [selectedFips, setSelectedFips] = useState<string | null>(null)
+  const [selectedName, setSelectedName] = useState<string | null>(null)
+  const [zoomCfg,      setZoomCfg]      = useState({ zoom: 1, center: [-96, 38] as [number,number] })
+  const [hoveredFips,  setHoveredFips]  = useState<string | null>(null)
+  const [locked,       setLocked]       = useState(false)
+
   const router       = useRouter()
-  const containerRef = useRef<HTMLDivElement>(null)  // div where the autocomplete element gets injected
-  const elementRef   = useRef<any>(null)             // reference to the PlaceAutocompleteElement itself
-  const addressRef   = useRef("")                    // ref copy of address to avoid stale closure in handleSubmit
-  const initedRef    = useRef(false)                 // guard to prevent double-init from React strict mode
+  const containerRef = useRef<HTMLDivElement>(null)
+  const addressRef   = useRef("")
+  const initedRef    = useRef(false)
 
   useEffect(() => {
     async function initPlaces() {
-      // strict mode mounts twice in dev — this guard prevents double init
       if (initedRef.current) return
       initedRef.current = true
-
       try {
-        // check importLibrary is available before calling it
-        if (!(window as any).google?.maps?.importLibrary) {
-          console.error("importLibrary not available")
-          initedRef.current = false  // allow retry
-          return
-        }
-
-        // load the places library via the new async loader
+        if (!(window as any).google?.maps?.importLibrary) { initedRef.current = false; return }
         const { PlaceAutocompleteElement } = await (window as any).google.maps.importLibrary("places")
-
         if (!containerRef.current) return
-
-        // create the autocomplete element restricted to US street addresses
-        const placeAutocomplete = new PlaceAutocompleteElement({
-          componentRestrictions: { country: "us" }, // only us
-          types: ["address"],                       // street addy
-        })
-        placeAutocomplete.placeholder = "Enter your address..."
-
-        containerRef.current.appendChild(placeAutocomplete);
-        elementRef.current = placeAutocomplete;
-        console.log("autocomplete appended:", containerRef.current.innerHTML)
-
-        // user picks suggestion, integrate it into react state
-        placeAutocomplete.addEventListener("gmp-select", async (e: any) => {
+        const el = new PlaceAutocompleteElement({ componentRestrictions: { country: "us" }, types: ["address"] })
+        el.placeholder = "Enter your address..."
+        containerRef.current.appendChild(el)
+        el.addEventListener("gmp-select", async (e: any) => {
           const place = e.placePrediction.toPlace()
           await place.fetchFields({ fields: ["formattedAddress"] })
-          const formatted = place.formattedAddress
-          console.log("place selected:", formatted)
-          if (formatted) {
-            addressRef.current = formatted  // set ref first so handleSubmit sees it immediately
-            setAddress(formatted)
-            setError("")
-          }
+          const fmt = place.formattedAddress
+          if (fmt) { addressRef.current = fmt; setAddress(fmt); setError("") }
         })
-      } catch (err) {
-        console.error("Failed to load Places:", err)
-        initedRef.current = false  // allow retry on error
-      }
+      } catch (err) { console.error(err); initedRef.current = false }
     }
 
-    // only inject the bootstrap loader once
     if (!document.getElementById("google-places-script")) {
-      const script = document.createElement("script")
-      script.id    = "google-places-script"
-      // loading=async is the new recommended pattern — makes importLibrary available
-      script.src   = `https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_PLACES_API_KEY}&loading=async`
-      script.async = true
-      script.defer = true
-      document.head.appendChild(script)
+      const s = document.createElement("script")
+      s.id = "google-places-script"
+      s.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_PLACES_API_KEY}&loading=async`
+      s.async = true; s.defer = true
+      document.head.appendChild(s)
     }
-
-    // poll until importLibrary is ready since async loader initializes after onload
-    const interval = setInterval(async () => {
+    const iv = setInterval(async () => {
       if ((window as any).google?.maps?.importLibrary && containerRef.current) {
-        clearInterval(interval)
-        await initPlaces()
+        clearInterval(iv); await initPlaces()
       }
     }, 100)
-
-    return () => clearInterval(interval)  // cleanup on unmount
+    return () => clearInterval(iv)
   }, [])
 
   function handleSubmit() {
-    // small timeout to let gmp-placeselect finish if user hit Enter immediately after selecting
     setTimeout(() => {
-      if (addressRef.current.trim().length > 0) {
-        setError("")
-        router.push(`/election?address=${encodeURIComponent(addressRef.current)}`)
-      } else {
-        setError("Please select an address from the suggestions.")
-      }
+      if (addressRef.current.trim()) { setError(""); router.push(`/election?address=${encodeURIComponent(addressRef.current)}`) }
+      else setError("Please select an address from the suggestions.")
     }, 100)
   }
 
-  function handleKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
-    if (e.key === "Enter") handleSubmit()
+  const zoomToState = useCallback((fips: string, name: string) => {
+    if (locked) return
+    setLocked(true)
+    setSelectedFips(fips)
+    setSelectedName(name)
+    setZoomCfg(computeZoomForState(fips))
+    setTimeout(() => setLocked(false), 500)
+  }, [locked])
+
+  const zoomOut = useCallback(() => {
+    if (locked) return
+    setLocked(true)
+    setSelectedFips(null)
+    setSelectedName(null)
+    setZoomCfg({ zoom: 1, center: [-96, 38] })
+    setTimeout(() => setLocked(false), 500)
+  }, [locked])
+
+  const stateDistricts = selectedFips
+    ? (districtData as FeatureCollection).features.filter(
+        (f) => (f.properties as any).STATEFP20 === selectedFips
+      )
+    : []
+
+  const projCfg = {
+    scale:  130 * zoomCfg.zoom,
+    center: createCoordinates(zoomCfg.center[0], zoomCfg.center[1]),
   }
 
   return (
@@ -112,44 +149,105 @@ export default function Home() {
       <div className="flex flex-col items-center justify-center font-sans p-4">
         <h1 className="text-3xl font-bold">Infolection</h1>
       </div>
+
       <div className="flex flex-col flex-1 items-center justify-center font-serif">
-        <h1 className="text-4xl font-sans font-bold">Understand what's on your ballot.</h1>
+        <h1 className="text-4xl font-sans font-bold">Understand what&apos;s on your ballot.</h1>
 
-        {/* Container where PlaceAutocompleteElement gets injected by useEffect */} 
-        <div
-          ref={containerRef}
-          onKeyDown={handleKeyDown}
-          className="w-full max-w-lg m-8"
-        ></div>
+        <div ref={containerRef} onKeyDown={(e) => e.key === "Enter" && handleSubmit()} className="w-full max-w-lg m-8" />
 
-        <ComposableMap
-          projection="geoMercator"
-          projectionConfig={{
-            scale: 250,
-            center: createCoordinates(-96, 38),
-          }}
-          width={500}
-          height={150}
-        >
-          <Geographies geography={geoData}>
-            {({ geographies }) =>
-              geographies.map((geo, i) => (
-                <Geography
-                  key={i}
-                  geography={geo}
-                  fill="#EAEAEC"
-                  stroke="#000000"
-                  strokeWidth={0.25}
-                />
-              ))
-            }
-          </Geographies>
-        </ComposableMap>
+        <div className="flex items-center gap-3 mb-1 h-8 font-sans text-sm">
+          {selectedFips ? (
+            <>
+              <button onClick={zoomOut} className="px-3 py-1 rounded bg-stone-200 hover:bg-stone-300 transition-colors">
+                ← All States
+              </button>
+              <span className="text-stone-600">
+                <strong>{selectedName}</strong> — {stateDistricts.length} Congressional District{stateDistricts.length !== 1 ? "s" : ""}
+              </span>
+            </>
+          ) : (
+            <span className="text-stone-400 text-xs">Click a state to see its congressional districts</span>
+          )}
+        </div>
 
-        <button
-          onClick={handleSubmit}
-          className="bg-stone-800 font-sans text-zinc-200 px-4 py-2 rounded-md mt-2"
-        >
+        <div style={{ width: MAP_WIDTH, maxWidth: "100%", position: "relative" }}>
+          <ComposableMap
+            projection="geoMercator"
+            projectionConfig={projCfg}
+            width={MAP_WIDTH}
+            height={MAP_HEIGHT}
+            style={{ transition: "all 0.45s cubic-bezier(0.4,0,0.2,1)" }}
+          >
+            {!selectedFips && (
+              <Geographies geography={stateData as any}>
+                {({ geographies }) =>
+                  geographies.map((geo, i) => {
+                    const fips = (geo.properties as any).STATEFP20 as string
+                    const name = (geo.properties as any).name as string
+                    const isHov = fips === hoveredFips
+                    return (
+                      <Geography
+                        key={(geo as any).rsmKey ?? i}
+                        geography={geo}
+                        fill={isHov ? "#A8B4C8" : "#EAEAEC"}
+                        stroke="#000000"
+                        strokeWidth={0.4}
+                        style={{
+                          default: { outline: "none", cursor: "pointer", transition: "fill 0.15s" },
+                          hover:   { outline: "none", cursor: "pointer", fill: "#A8B4C8" },
+                          pressed: { outline: "none" },
+                        }}
+                        onClick={() => zoomToState(fips, name)}
+                        onMouseEnter={() => setHoveredFips(fips)}
+                        onMouseLeave={() => setHoveredFips(null)}
+                      />
+                    )
+                  })
+                }
+              </Geographies>
+            )}
+
+            {selectedFips && (
+              <Geographies geography={districtData as any}>
+                {({ geographies }) => {
+                  const visible = geographies.filter(
+                    (g) => (g.properties as any).STATEFP20 === selectedFips
+                  )
+                  return visible.map((geo, i) => (
+                    <Geography
+                      key={(geo as any).rsmKey ?? i}
+                      geography={geo}
+                      fill={DISTRICT_COLORS[i % DISTRICT_COLORS.length]}
+                      stroke="#ffffff"
+                      strokeWidth={0.8}
+                      style={{
+                        default: { outline: "none" },
+                        hover:   { outline: "none", opacity: 0.85 },
+                        pressed: { outline: "none" },
+                      }}
+                    />
+                  ))
+                }}
+              </Geographies>
+            )}
+          </ComposableMap>
+        </div>
+
+        {selectedFips && stateDistricts.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 max-w-2xl justify-center">
+            {stateDistricts.map((f, i) => (
+              <div key={i} className="flex items-center gap-1 font-sans text-xs">
+                <span style={{
+                  display: "inline-block", width: 10, height: 10, borderRadius: 2, flexShrink: 0,
+                  backgroundColor: DISTRICT_COLORS[i % DISTRICT_COLORS.length],
+                }} />
+                <span className="text-stone-700">{(f.properties as any).NAMELSAD20}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <button onClick={handleSubmit} className="bg-stone-800 font-sans text-zinc-200 px-4 py-2 rounded-md mt-6">
           Get My Ballot
         </button>
         {error && <p className="text-red-500 mt-2">{error}</p>}
