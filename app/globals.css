@@ -30,3 +30,14 @@ path, g, svg, .rsm-geography {
   outline: none !important;
   -webkit-tap-highlight-color: rgba(0,0,0,0) !important;
 }
+
+gmp-place-autocomplete {
+  display: block;
+  background-color: oklch(86.9% 0.005 56.366);
+  font-family: var(--font-serif);
+  color: var(--foreground);
+}
+
+gmp-place-autocomplete input:focus {
+  outline: none;
+}
