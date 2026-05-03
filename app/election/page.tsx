@@ -109,7 +109,7 @@ function ElectionContent() {
           {/*check for if there actually is little man running*/}
           {senateCandidates.length > 0 ? (
             senateCandidates.map((c, i) => (
-              <CandidateCard key={i} candidate={c} onClick={() => router.push(`/candidate?id=${c.candidate_id}`)} />
+            <CandidateCard key={i} candidate={c} onClick={() => router.push(`/candidate?data=${encodeURIComponent(JSON.stringify(c))}`)} />
             ))
           ) : (
             <p className="text-gray-400 text-sm">No candidates found for this state.</p>
@@ -120,7 +120,7 @@ function ElectionContent() {
           <h2 className="text-3xl font-bold font-sans">U.S. House of Representatives</h2>
           {houseCandidates.length > 0 ? (
             houseCandidates.map((c, i) => (
-              <CandidateCard key={i} candidate={c} onClick={() => router.push(`/candidate?id=${c.candidate_id}`)} />
+                <CandidateCard key={i} candidate={c} onClick={() => router.push(`/candidate?data=${encodeURIComponent(JSON.stringify(c))}`)} />
             ))
           ) : (
             <p className="text-gray-400 text-sm">No candidates found for this district.</p>
