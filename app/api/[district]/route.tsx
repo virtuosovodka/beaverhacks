@@ -268,7 +268,7 @@ async function getCachedCommitteeData(committeeIds: string[]) {
     for (const committeeId of committeeIds) {
         const cachedData = await client.json.get(committeeId, { path: '$' });
         if (cachedData) {
-            committeeData.push(cachedData);
+            committeeData.push(Array.isArray(cachedData) ? cachedData[0] : cachedData);
         } else {
             missingCommitteeIds.push(committeeId);
         }
@@ -277,7 +277,7 @@ async function getCachedCommitteeData(committeeIds: string[]) {
     if (missingCommitteeIds.length > 0) {
         console.log('Cache miss for committee IDs:', missingCommitteeIds);
         // Fetch data for missing committee IDs and cache it
-        const request = `https://api.open.fec.gov/v1/committees/?committee_id=${missingCommitteeIds.join(',')}&api_key=${process.env.FEC_API_KEY}`;
+        const request = `https://api.open.fec.gov/v1/committees/?committee_id=${missingCommitteeIds.join('&committee_id=')}&api_key=${process.env.FEC_API_KEY}`;
         const response = await fetch(request);
         const data = await response.json();
 
