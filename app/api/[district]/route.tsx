@@ -1,5 +1,6 @@
 import { get } from 'http';
 import { platform } from 'os';
+import { encode } from 'punycode';
 import { createClient } from 'redis';
 
 export async function GET(
@@ -16,23 +17,45 @@ export async function GET(
     // Fetch election data from FEC API for the district, both for House and Senate
     const houseData = await getCachedRequest(`https://api.open.fec.gov/v1/elections/?state=${state}&district=${districtNumber}&cycle=${electionCycle}&office=house`);
     const senateData = await getCachedRequest(`https://api.open.fec.gov/v1/elections/?state=${state}&cycle=${electionCycle}&office=senate`);
+    console.log('House data:', houseData);
+    console.log('Senate data:', senateData);
 
     // Build present committees list
     const committees = getPresentCommittees(houseData, senateData);
+    console.log('Present committees:', committees);
 
     // Fetch committee data from FEC for all committees referenced
     const committeeData = await getCachedCommitteeData(Array.from(committees));
+    console.log('Committee data:', committeeData);
 
     // Build candidates list
     const candidates = getCandidates(houseData, senateData);
+    console.log('Candidates:', candidates);
 
     // Get news data + platform data for all candidates from news API and LLM api
     const candidateData = await getCandidateData(candidates);
+    console.log('Candidate data with news and platform info:', candidateData);
 
     // Finish result object and return it as JSON
     const result = getFormattedResult(houseData, senateData, committeeData, candidateData);
 
     return Response.json(result);
+}
+
+function sanitizeJSON(str: string) {
+    return str.replace(/[\r\n\t]/g, '').trim();
+}
+
+function isValidJSON(str: string) {
+    console.log('Checking if string is valid JSON:', str);
+    try {
+        JSON.parse(str);
+        console.log('String is valid JSON');
+        return true;
+    } catch (e) {
+        console.log('String is not valid JSON');
+        return false;
+    }
 }
 
 function getFormattedResult(houseData: any, senateData: any, committeeData: any[], candidateData: any[]) {
@@ -56,12 +79,16 @@ function getFormattedResult(houseData: any, senateData: any, committeeData: any[
     - platform data about the candidate TODO: make this something formatted and structured, not just raw LLM output
     */
 
-    if (houseData && houseData.results) {
-        houseData.results.forEach((candidate: any) => {
+    if (houseData && houseData[0].results) {
+        houseData[0].results.forEach((candidate: any) => {
             const candidateCommittees = committeeData.filter(committee => candidate['committee_ids'] && candidate['committee_ids'].includes(committee['committee_id'])).map(committee => committee['name']);
 
             const candidateNews = candidateData[candidate['candidate_id']]?.news || [];
-            const candidatePlatform = candidateData[candidate['candidate_id']]?.platform || {};
+            const candidatePlatform = sanitizeJSON(candidateData[candidate['candidate_id']]?.platform || "{}");
+            const platformParsed = isValidJSON(candidatePlatform) ? JSON.parse(candidatePlatform) : {};
+
+            const top_issues = platformParsed.top_issues || [];
+            const positions = platformParsed.positions || [];
 
             const candidateInfo = {
                 name: candidate['candidate_name'],
@@ -76,18 +103,24 @@ function getFormattedResult(houseData: any, senateData: any, committeeData: any[
                     date: article.pubDate,
                     url: article.link,
                 })),
-                platform: candidatePlatform,
+                top_issues: top_issues,
+                positions: positions,
             };
             result.house.push(candidateInfo);
         });
     }
 
-    if (senateData && senateData.results) {
-        senateData.results.forEach((candidate: any) => {
+    if (senateData && senateData[0].results) {
+        senateData[0].results.forEach((candidate: any) => {
             const candidateCommittees = committeeData.filter(committee => candidate['committee_ids'] && candidate['committee_ids'].includes(committee['committee_id'])).map(committee => committee['name']);
+            const candidateDataEntry = candidateData.find(entry => entry[0].candidateId === candidate['candidate_id'])[0];
+            console.log(`Candidate ${candidate['candidate_name']} data entry:`, candidateDataEntry);
+            const candidateNews = candidateDataEntry?.news || [];
+            const candidatePlatform = sanitizeJSON(candidateDataEntry?.platform.content || "{}");
+            const platformParsed = isValidJSON(candidatePlatform) ? JSON.parse(candidatePlatform) : {};
 
-            const candidateNews = candidateData[candidate['candidate_id']]?.news || [];
-            const candidatePlatform = candidateData[candidate['candidate_id']]?.platform || {};
+            const top_issues = platformParsed.top_issues || [];
+            const positions = platformParsed.positions || [];
 
             const candidateInfo = {
                 name: candidate['candidate_name'],
@@ -102,7 +135,8 @@ function getFormattedResult(houseData: any, senateData: any, committeeData: any[
                     date: article.pubDate,
                     url: article.link,
                 })),
-                platform: candidatePlatform,
+                top_issues: top_issues,
+                positions: positions,
             };
             result.senate.push(candidateInfo);
         });
@@ -134,18 +168,27 @@ async function getCandidateData(candidates: [string, string][]) {
         const newsData: Record<string, any[]> = {};
 
         for (const [candidateId, candidateName] of candidates) {
-            const request = `https://newsdata.io/api/1/latest?apikey=${process.env.NEWS_API_KEY}&q=${candidateName}`;
+            if (!missingCandidateIds.includes(candidateId)) {
+                continue; // Skip candidates that are already cached
+            }
+            console.log(`Fetching news for candidate ${candidateName} (ID: ${candidateId})`);
+            const request = `https://api.worldnewsapi.com/search-news/?text=${encodeURIComponent(candidateName)}&api-key=${process.env.NEWS_API_KEY}`;
             const response = await fetch(request);
             const data = await response.json();
-            newsData[candidateId] = data.articles; // Store articles for the candidate
+            newsData[candidateId] = data.news; // Store articles for the candidate
         }
 
         const candidatePlatformData: Record<string, any> = {};
 
         // Run news articles through LLM to get platform data
         for (const [candidateId, candidateName] of candidates) {
+            if (!missingCandidateIds.includes(candidateId)) {
+                continue; // Skip candidates that are already cached
+            }
             const articles = newsData[candidateId];
-            const articlesContent = articles.map((article: any) => `${article.title}\n${article.description}\n${article.content}`).join('\n\n');
+            console.log('Articles:', articles);
+            console.log(`Processing candidate ${candidateName} with ${articles.length} articles for platform data extraction.`);
+            const articlesContent = articles.map((article: any) => `${article.title}\n${article.text}`).join('\n\n');
 
             const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
                 method: 'POST',
@@ -154,11 +197,16 @@ async function getCandidateData(candidates: [string, string][]) {
                     Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
                 },
                 body: JSON.stringify({
-                    model: 'google/gemma-4-31b-it:free',
+                    model: 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free',
                     messages: [
                         {
                             role: 'user',
-                            content: 'Here are some recent news articles about a political candidate. Based on these articles, summarize the candidate\'s platform and key policy positions. If there are any direct quotes from the candidate in the articles, include those as well. If there is conflicting information in the articles, note that too.\n\n' + articlesContent,
+                            content: `You will be given a series of news articles covering ${candidateName}. Output a valid JSON object, with no additional formatting or text, following this format:
+                            {
+                            "top_issues": [],
+                            "positions": []
+                            }
+                            Where you identify three of the candidate's most important issues (in three words or less), and some positions they hold for a future office (partial sentences, starting with verbs). The issues and positions are not necessarily related. Here are the articles` + articlesContent,
                         }
                     ],
                     reasoning: { enabled: false }
@@ -166,6 +214,7 @@ async function getCandidateData(candidates: [string, string][]) {
             });
 
             const result = await response.json();
+            console.log('LLM response:', result);
             const platformData = result.choices[0].message;
 
             candidatePlatformData[candidateId] = platformData;
@@ -192,14 +241,14 @@ async function getCandidateData(candidates: [string, string][]) {
 function getCandidates(houseData: any, senateData: any) {
     const candidates: [string, string][] = [];
 
-    if (houseData && houseData.results) {
-        houseData.results.forEach((candidate: any) => {
+    if (houseData && houseData[0].results) {
+        houseData[0].results.forEach((candidate: any) => {
             candidates.push([candidate['candidate_id'], candidate['candidate_name']]);
         });
     }
 
-    if (senateData && senateData.results) {
-        senateData.results.forEach((candidate: any) => {
+    if (senateData && senateData[0].results) {
+        senateData[0].results.forEach((candidate: any) => {
             candidates.push([candidate['candidate_id'], candidate['candidate_name']]);
         });
     }
@@ -210,8 +259,8 @@ function getCandidates(houseData: any, senateData: any) {
 function getPresentCommittees(houseData: any, senateData: any) {
     const committees = new Set<string>();
 
-    if (houseData && houseData.results) {
-        houseData.results.forEach((candidate: any) => {
+    if (houseData && houseData[0].results) {
+        houseData[0].results.forEach((candidate: any) => {
             if (candidate['committee_ids']) {
                 candidate['committee_ids'].forEach((committeeId: string) => {
                     committees.add(committeeId);
@@ -220,8 +269,8 @@ function getPresentCommittees(houseData: any, senateData: any) {
         });
     }
 
-    if (senateData && senateData.results) {
-        senateData.results.forEach((candidate: any) => {
+    if (senateData && senateData[0].results) {
+        senateData[0].results.forEach((candidate: any) => {
             if (candidate['committee_ids']) {
                 candidate['committee_ids'].forEach((committeeId: string) => {
                     committees.add(committeeId);
