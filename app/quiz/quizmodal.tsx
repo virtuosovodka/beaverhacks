@@ -16,7 +16,7 @@ export function QuizModal({ candidates, quizState, answer, onClose }: {
     const results = quizResults(quizState)
     return (
       // semi-transparent overlay so election page shows through behind
-      <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
+      <div className="fixed inset-0 bg-transparent backdrop-brightness-50 flex items-center justify-center z-50">
         {/* wider results card in off-white to match site background */}
         <div className="rounded-lg p-8 w-full max-w-2xl relative" style={{ background: "oklch(92.3% 0.003 48.717)" }}>
           {/* x button to close */}
@@ -26,19 +26,21 @@ export function QuizModal({ candidates, quizState, answer, onClose }: {
           >
             ✕
           </button>
- 
-          <h2 className="text-2xl font-bold font-sans mb-6">Your Results</h2>
-          {results.map((result, index) => (
-            <div key={index} className="mb-4 p-4 border border-gray-200 rounded-md">
-              {/* show rank number next to name */}
-              <h3 className="font-sans font-semibold text-lg">
-                #{index + 1} {formatCandidateName(candidates[result.candidateIndex].name)}
-              </h3>
-              <p className="text-sm text-gray-500 mt-1">
-                Top positions you agreed with: {result.topPositions.join(", ")}
-              </p>
-            </div>
-          ))}
+          <div>
+            <h2 className="text-2xl font-bold font-sans mb-6">Your Results</h2>
+            {results.map((result, index) => (
+              <div key={index} className="mb-4 p-4 border border-gray-200 rounded-md">
+                {/* show rank number next to name */}
+                <h3 className="font-sans font-semibold text-lg">
+                  #{index + 1} {formatCandidateName(candidates[result.candidateIndex].name)}
+                </h3>
+                <p className="text-sm text-gray-500 mt-1">
+                  Top positions you agreed with: {result.topPositions.join(", ")}
+                </p>
+              </div>
+            ))}
+
+          </div>
         </div>
       </div>
     )
@@ -54,8 +56,8 @@ export function QuizModal({ candidates, quizState, answer, onClose }: {
   const candidate2Name = formatCandidateName(candidates[candidate2Index].name)
  
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-8 w-full max-w-md relative">
+    <div className="fixed inset-0 backdrop-brightness-50 flex items-center justify-center z-50">
+      <div className="bg-white opacity-100 rounded-lg p-8 w-full max-w-md relative">
  
         {/* x button to close */}
         <button
@@ -77,7 +79,6 @@ export function QuizModal({ candidates, quizState, answer, onClose }: {
           onClick={() => answer(1)}
           className="w-full text-left border border-gray-300 rounded-md p-4 mb-3 hover:bg-stone-100 transition-colors"
         >
-          <p className="text-xs text-gray-400 font-sans mb-1">{candidate1Name}</p>
           <p className="text-sm font-serif">{candidate1Position}</p>
         </button>
  
@@ -86,7 +87,6 @@ export function QuizModal({ candidates, quizState, answer, onClose }: {
           onClick={() => answer(2)}
           className="w-full text-left border border-gray-300 rounded-md p-4 hover:bg-stone-100 transition-colors"
         >
-          <p className="text-xs text-gray-400 font-sans mb-1">{candidate2Name}</p>
           <p className="text-sm font-serif">{candidate2Position}</p>
         </button>
  
