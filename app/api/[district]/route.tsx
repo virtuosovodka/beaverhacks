@@ -18,11 +18,11 @@ export async function GET(
     // Fetch election data from FEC API for the district, both for House and Senate
     const houseData = await getCachedRequest(`https://api.open.fec.gov/v1/elections/?state=${state}&district=${districtNumber}&cycle=${electionCycle}&office=house`);
     const senateData = await getCachedRequest(`https://api.open.fec.gov/v1/elections/?state=${state}&cycle=${electionCycle}&office=senate`);
-    
+
 
     const houseNormalized = Array.isArray(houseData) ? houseData[0] : houseData;
     const senateNormalized = Array.isArray(senateData) ? senateData[0] : senateData;
-    
+
     console.log('House data:', houseData);
     console.log('Senate data:', senateData);
 
@@ -99,10 +99,7 @@ function getFormattedResult(houseData: any, senateData: any, committeeData: any[
     if (houseData && houseData.results) {
         houseData.results.forEach((candidate: any) => {
             const candidateCommittees = committeeData.filter(committee => candidate['committee_ids'] && candidate['committee_ids'].includes(committee['committee_id'])).map(committee => committee['name']);
-            const raw = candidateData.find(entry => {
-            const item = Array.isArray(entry) ? entry[0] : entry;
-            return item.candidateId === candidate['candidate_id'];
-            });
+            const raw = candidateData[candidate['candidate_id']];
             const candidateDataEntry = Array.isArray(raw) ? raw[0] : raw;
             console.log(`Candidate ${candidate['candidate_name']} data entry:`, candidateDataEntry);
             const candidatePlatform = sanitizeJSON(candidateDataEntry?.platform.answer || "{}");
@@ -128,7 +125,8 @@ function getFormattedResult(houseData: any, senateData: any, committeeData: any[
     if (senateData && senateData.results) {
         senateData.results.forEach((candidate: any) => {
             const candidateCommittees = committeeData.filter(committee => candidate['committee_ids'] && candidate['committee_ids'].includes(committee['committee_id'])).map(committee => committee['name']);
-            const candidateDataEntry = candidateData.find(entry => entry[0].candidateId === candidate['candidate_id'])[0];
+            const raw = candidateData[candidate['candidate_id']];
+            const candidateDataEntry = Array.isArray(raw) ? raw[0] : raw;
             console.log(`Candidate ${candidate['candidate_name']} data entry:`, candidateDataEntry);
             const candidatePlatform = sanitizeJSON(candidateDataEntry?.platform.answer || "{}");
             const platformParsed = isValidJSON(candidatePlatform) ? JSON.parse(candidatePlatform) : {};
@@ -158,12 +156,12 @@ async function getCandidateData(candidates: [string, string][]) {
     client.on('error', err => console.log('Redis Client Error', err));
     await client.connect();
 
-    const candidateData = [];
+    const candidateData: Record<string, any> = {};
     const missingCandidateIds = [];
     for (const [candidateId, candidateName] of candidates) {
         const cachedData = await client.json.get(candidateId, { path: '$' });
         if (cachedData) {
-            candidateData.push(cachedData);
+            candidateData[candidateId] = cachedData;
         } else {
             missingCandidateIds.push(candidateId);
         }
@@ -177,18 +175,28 @@ async function getCandidateData(candidates: [string, string][]) {
 
         const candidatePlatformData: Record<string, any> = {};
 
-        // Run news articles through LLM to get platform data
         for (const [candidateId, candidateName] of candidates) {
             if (!missingCandidateIds.includes(candidateId)) {
                 continue; // Skip candidates that are already cached
             }
 
-            const platformData = await tavilyClient.search(`Find information on the political platform of ${candidateName}, returning a JSON object with the lists "top_issues" (short keywords) and "positions" (partial sentences, starting with verbs).`, {
-                searchDepth: "basic",
-                includeAnswer: "advanced",
-            });
+            while (!candidatePlatformData[candidateId]) {
+                const platformData = await tavilyClient.search(`Find information on the political platform of ${candidateName}, returning a JSON object with the lists "top_issues" (short keywords) and "positions" (partial sentences, starting with verbs).`, {
+                    searchDepth: "basic",
+                    includeAnswer: "advanced",
+                });
 
-            candidatePlatformData[candidateId] = platformData;
+                if (platformData && platformData.answer) {
+                    if (isValidJSON(sanitizeJSON(platformData.answer))) {
+                        candidatePlatformData[candidateId] = platformData;
+                    } else {
+                        console.log(`Invalid JSON for candidate ${candidateName}. Retrying...`);
+                    }
+                }
+                else {
+                    console.log(`No platform data found for candidate ${candidateName}. Retrying...`);
+                }
+            }
         }
 
         // Cache the candidate data in Redis
@@ -197,14 +205,13 @@ async function getCandidateData(candidates: [string, string][]) {
                 candidateId: candidateId,
                 platform: candidatePlatformData[candidateId],
             };
-            candidateData.push(data);
+            candidateData[candidateId] = data;
             await client.json.set(candidateId, '$', data);
             await client.expire(candidateId, 360000); // Cache for 100 hours
         }
     } else {
         console.log('Cache hit for all candidate IDs');
     }
-
     return candidateData;
 }
 
