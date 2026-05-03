@@ -48,10 +48,12 @@ function sanitizeJSON(str: string) {
     const topIssuesMatch = str.match(/"?top_issues"?\s*:\s*(\[[^\]]*\])/);
     const positionsMatch = str.match(/"?positions"?\s*:\s*(\[[^\]]*\])/);
 
-    // TODO: make this title case lol
-
     if (topIssuesMatch && positionsMatch) {
-        return `{"top_issues": ${topIssuesMatch[1]}, "positions": ${positionsMatch[1]}}`;
+        const json = JSON.parse(`{"top_issues": ${topIssuesMatch[1]}, "positions": ${positionsMatch[1]}}`);
+        // Make all the issues title case and all the positions start with a capital letter
+        json.top_issues = json.top_issues.map((issue: string) => issue.split('_').map((word: string) => word.charAt(0).toUpperCase() + word.slice(1)).join(' '));
+        json.positions = json.positions.map((position: string) => position.charAt(0).toUpperCase() + position.slice(1));
+        return JSON.stringify(json);
     }
 
     return "{}";
