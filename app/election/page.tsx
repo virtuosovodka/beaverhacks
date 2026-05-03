@@ -1,8 +1,10 @@
 "use client"
 import { useEffect, useState, Suspense } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
+import { quizNext, quizResults, QuizState } from "../lib/quiz"
+import { QuizModal } from "../quiz/quizmodal"
 
-type Candidate = {
+export type Candidate = {
   candidate_id: string
   name: string
   party_full: string
@@ -25,6 +27,8 @@ function ElectionContent() {
   const [divisions, setDivisions] = useState<Divisions | null>(null)
   const [houseCandidates, setHouseCandidates] = useState<Candidate[]>([])
   const [senateCandidates, setSenateCandidates] = useState<Candidate[]>([])
+  const [quizCandidates, setQuizCandidates] = useState<Candidate[]>([])
+  const [quizState, setQuizState] = useState(null as any)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
 
@@ -53,24 +57,6 @@ function ElectionContent() {
         setHouseCandidates(electionData.house)
         setSenateCandidates(electionData.senate)
 
-        // const houseRes = await fetch(
-        //   `https://api.open.fec.gov/v1/candidates/?state=${state}&district=${district}&office=H&election_year=2026&api_key=${process.env.FEC_API_KEY}&per_page=20`
-        // )
-        // const houseData = await houseRes.json()
-        // setHouseCandidates(houseData.results)
-
-        // const senateRes = await fetch(
-        //   `https://api.open.fec.gov/v1/candidates/?state=${state}&office=S&election_year=2026&api_key=${process.env.FEC_API_KEY}&per_page=20`
-        // )
-        // const senateData = await senateRes.json()
-        // setSenateCandidates(senateData.results)
-
-        // if (houseData.results.length === 0 && senateData.results.length === 0) {
-        //   setError("No candidates found. Try including your full city and state.")
-        //   setLoading(false)
-        //   return
-        // }
-
         setLoading(false)
       } catch (err) {
         console.log(err)
@@ -85,6 +71,28 @@ function ElectionContent() {
   if (loading) return <p style={{ textAlign: "center", marginTop: "48px" }}>Loading your ballot...</p>
   if (error) return <p style={{ textAlign: "center", marginTop: "48px", color: "var(--accent)" }}>{error}</p>
 
+  function startQuiz(candidates: Candidate[]) {
+    const quizState: QuizState = {
+      candidatePositions: candidates.map(c => c.positions),
+      scores: candidates.map(() => Array(candidates[0].positions.length).fill(0)),
+      opportunities: candidates.map(() => Array(candidates[0].positions.length).fill(0)),
+      currentQuestion: [[0, 0], [1, 0]],
+      currentAnswer: null,
+      asked: 0
+    }
+    const updatedQuizState = quizNext(quizState, null)
+    setQuizState(updatedQuizState)
+    setQuizCandidates(candidates)
+  }
+
+  function quizUpdateHandler(answer: 1 | 2 | null) {
+    if (!quizState) return
+    const updatedQuizState = quizNext(quizState, answer)
+    setQuizState({ ...updatedQuizState })
+  }
+
+  console.log(`quizState:`, quizState)
+
   return (
     <>
       <div className="flex flex-col items-center justify-center font-sans p-8 w-full">
@@ -97,18 +105,19 @@ function ElectionContent() {
       </div>
       <div className="flex flex-col items-start justify-start font-serif p-4 pr-32 pl-32">
         <div className="flex flex-col gap-5 mt-8 w-full">
-          <h2 className="text-3xl font-bold font-sans">U.S. Senate</h2>
+          <h2 className="text-3xl font-bold font-sans">U.S. Senate</h2><button onClick={() => startQuiz(senateCandidates)} className="ml-4 text-sm font-sans text-gray-500 hover:text-gray-700 transition-colors">Take the Quiz</button>
           {senateCandidates.map((c, i) => (
             <CandidateCard key={i} candidate={c} onClick={() => router.push(`/candidate?id=${c.candidate_id}`)} />
           ))}
         </div>
         <div className="flex flex-col gap-5 mt-8 w-full">
-          <h2 className="text-3xl font-bold font-sans">U.S. House of Representatives</h2>
+          <h2 className="text-3xl font-bold font-sans">U.S. House of Representatives</h2><button onClick={() => startQuiz(houseCandidates)} className="ml-4 text-sm font-sans text-gray-500 hover:text-gray-700 transition-colors">Take the Quiz</button>
           {houseCandidates.map((c, i) => (
             <CandidateCard key={i} candidate={c} onClick={() => router.push(`/candidate?id=${c.candidate_id}`)} />
           ))}
         </div>
       </div>
+      <QuizModal candidates={quizCandidates} quizState={quizState} answer={quizUpdateHandler} />
     </>
   )
 }
@@ -121,10 +130,10 @@ export default function Election() {
   )
 }
 
-function CandidateCard({candidate, onClick} : {candidate: Candidate, onClick?: () => void}) {
+function CandidateCard({ candidate, onClick }: { candidate: Candidate, onClick?: () => void }) {
   return (
-    <div 
-      className="cursor-pointer flex w-full flex-row items-center gap-4 p-4 border border-gray-300 rounded-md hover:bg-stone-300 transition-colors" 
+    <div
+      className="cursor-pointer flex w-full flex-row items-center gap-4 p-4 border border-gray-300 rounded-md hover:bg-stone-300 transition-colors"
       onClick={onClick}
     >
       <h3 className="font-sans text-md font-bold">{candidate.name}</h3>
