@@ -214,8 +214,7 @@ function ElectionContent() {
   return (
     <>
       {/* header */}
-      <div className="flex flex-col items-center justify-center font-sans p-8 w-full">
-      </div>
+      <button onClick={() => router.push("/")} ><Logo /></button>
 
       {/* state + district label */}
       <div className="flex flex-col items-start justify-start font-serif p-4 pl-16 pr-16">
