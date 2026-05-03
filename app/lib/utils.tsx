@@ -1,12 +1,26 @@
 export function formatCandidateName(name: string): string {
     // Candidate names start as LAST, FIRST MIDDLE
+    // Want to convert to first middle last
     const parts = name.split(",").map(part => part.trim())
     if (parts.length === 2) {
-        const lastName = parts[0].toUpperCase().charAt(0) + parts[0].slice(1).toLowerCase()
-        const firstMiddle = parts[1].split(" ").filter(Boolean)
-        const firstName = firstMiddle[0].toUpperCase().charAt(0) + firstMiddle[0].slice(1).toLowerCase()
-        const middleName = firstMiddle.at(1)?.toUpperCase().charAt(0) + (firstMiddle.at(1) || "").slice(1).toLowerCase()
-        return `${firstName} ${firstMiddle.at(1) !== undefined ? middleName : ""} ${lastName}`.trim()
+        const [last, firstMiddle] = parts
+        const lastTitleCase = last.split(" ").map(word => formatWord(word)).join(" ")
+        const firstMiddleTitleCase = firstMiddle.split(" ").map(word => formatWord(word)).join(" ")
+        console.log(`Formatted candidate name: ${firstMiddleTitleCase} ${lastTitleCase}`)
+        return `${firstMiddleTitleCase} ${lastTitleCase}`.trim()
     }
     return name
+}
+
+function formatWord(word: string): string {
+    if (word.length === 0) return word
+    // Special cases are hyphenated and nicknames
+    if (word.includes("-")) {
+        return word.split("-").map(part => formatWord(part)).join("-")
+    }
+    if (word.startsWith('"') && word.endsWith('"')) {
+        return `"${formatWord(word.slice(1, -1))}"`
+    }
+    // Default case is just capitalize first letter
+    return word[0].toUpperCase() + word.slice(1).toLowerCase()
 }
