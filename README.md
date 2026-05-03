@@ -1,4 +1,5 @@
-# beaverhacks project name !!
+# Electable
+## Made for BeaverHacks 2026
 
 ## Setup
 
