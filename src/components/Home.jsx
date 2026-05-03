@@ -1,19 +1,19 @@
 import { useState } from 'react'
 import { useNavigate } from "react-router-dom"
 
-function Home() {
+function Home({address, setAddress}) {
   const [submitted, setSubmitted] = useState(false)
   const [error, setError] = useState("")
   const navigate = useNavigate()
-  const [address, setAddress] = useState("");
   
     function handleSubmit() {
-        if (address.length > 5) {
+    if (address.length > 10 && (address.includes(",") )) {
         setError("")
         setSubmitted(true)
     } else {
-        setError("Please enter your full address")
-    }}
+        setError("Please enter your full address including city and state (e.g. 123 Main St, Portland, OR)")
+    }
+    }
 
   return (
     <div>
