@@ -215,7 +215,7 @@ function ElectionContent() {
     <>
       {/* header */}
       <div className="flex flex-col items-center justify-center font-sans p-8 w-full">
-        <button onClick={() => router.push("/")} className="text-3xl font-bold">Infolection</button>
+        <button onClick={() => router.push("/")} className="text-3xl font-bold">Electable</button>
       </div>
 
       {/* state + district label */}
