@@ -159,7 +159,7 @@ export default function Home() {
   return (
     <>
       <div className="flex flex-col items-center justify-center font-sans p-4">
-        <h1 className="text-3xl font-bold">Infolection</h1>
+        <h1 className="text-3xl font-bold">Electable</h1>
       </div>
 
       <div className="flex flex-col flex-1 items-center justify-center font-serif">
