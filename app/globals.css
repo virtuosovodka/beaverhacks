@@ -17,3 +17,14 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+gmp-place-autocomplete {
+  display: block;
+  background-color: oklch(86.9% 0.005 56.366);
+  font-family: var(--font-serif);
+  color: var(--foreground);
+}
+
+gmp-place-autocomplete input:focus {
+  outline: none;
+}

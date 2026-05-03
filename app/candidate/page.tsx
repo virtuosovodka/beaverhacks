@@ -1,121 +1,158 @@
 "use client"
-//need next cliuent to have interactive ui components in browser 
+// need next client to have interactive ui components in browser
 
-import { useEffect, useState, Suspense } from "react"
+import { Suspense } from "react"
+import { formatCandidateName } from "../lib/utils"
 import { useSearchParams, useRouter } from "next/navigation"
 
-type CandidateDetail = {
-    candidate_id: string
-    name: string 
-    party_full: string 
-    state: string 
-    district: string 
-    office_full: string 
-    incumbent_challenge_full: string 
+// Shape of candidate data passed from election page via URL query param
+type Candidate = {
+  name: string
+  party: string
+  cash_on_hand: number
+  total_disbursements: number
+  total_receipts: number
+  committees: string[]
+  top_issues: string[]
+  positions: string[]
+  incumbent_challenge_full: string
+}
+
+// Formats a raw dollar amount into a readable shorthand (e.g. $1.4M, $280K)
+function formatMoney(n: number): string {
+  if (!n) return "$0"
+  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`
+  if (n >= 1_000)     return `$${(n / 1_000).toFixed(0)}K`
+  return `$${n.toFixed(0)}`
+}
+
+// Returns what percentage `part` is of `total` as a string (e.g. "58%")
+// Guards against divide-by-zero when a candidate has no financial data
+function pct(part: number, total: number): string {
+  if (!total) return "0%"
+  return `${Math.round((part / total) * 100)}%`
 }
 
 function CandidateContent() {
-    const searchParams = useSearchParams()
-    const id = searchParams.get("id")
-    const router = useRouter()
+  const searchParams = useSearchParams()
+  const router = useRouter()
 
-    const [candidate, setCandidate] = useState<CandidateDetail | null>(null)
-    const [loading, setLoading] = useState(true)
-    const [error, setError] = useState("")
+  // Read candidate data from URL query param (passed from election page)
+  // We use URL params instead of fetching because all data is already
+  // available from the /api/[district] route called on the election page
+  const raw = searchParams.get("data")
+  if (!raw) return (
+    <p className="text-center mt-12 text-gray-400">No candidate data found.</p>
+  )
 
-    useEffect(() => {
-        async function fetchCandidate(){
-            try {
-                const res = await fetch(
-                    `https://api.open.fec.gov/v1/candidate/${id}/?api_key=${process.env.NEXT_PUBLIC_FEC_API_KEY}`
-                )
-                const data = await res.json()
-                setCandidate(data.results[0])
-                setLoading(false)
+  const candidate: Candidate = JSON.parse(decodeURIComponent(raw))
 
-            } catch (err) {
-                console.log(err)
-                setError("Failed to load candidate data")
-                setLoading(false)
-            }
-        }
+  return (
+    <>
+      {/* HEADER -- matches election page header style */}
+      <div className="flex flex-col items-center justify-center font-sans p-8 w-full">
+        <button onClick={() => router.push("/")} className="text-3xl font-bold">Infolection</button>
+      </div>
 
-        if (id) fetchCandidate()
+      <div className="flex flex-col items-start justify-start font-serif p-4 pr-32 pl-32 gap-6">
 
-    }, [id])
-
-    if (loading) return <p className="text-center mt-48px">Loading candidate...</p>
-    if (error) return <p style={{ textAlign: "center", marginTop: "48px", color: "var(--accent)" }}>{error}</p>
-
-    return (
-        <div className="page">
-        <button onClick={() => router.back()} style={{ marginBottom: "24px" }}>
-            ← Back
+        {/* BACK BUTTON */}
+        <button
+          onClick={() => router.back()}
+          className="text-sm text-gray-500 hover:text-gray-800 transition-colors"
+        >
+          ← Back to ballot
         </button>
 
-        {/* TOP ROW */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "24px", marginBottom: "32px" }}>
-            
-            {/* LEFT -- identity */}
-            <div className="card" style={{ display: "flex", gap: "16px", alignItems: "flex-start" }}>
-            {/* placeholder image */}
-            <div style={{ width: "80px", height: "80px", borderRadius: "50%", background: "var(--border)", flexShrink: 0 }} />
-            <div>
-                <h2 style={{ borderBottom: "none", marginBottom: "4px" }}>{candidate?.name}</h2>
-                <p>Age: --</p>
-                <p>{candidate?.state}{candidate?.district !== "00" ? `, District ${candidate?.district}` : ""}</p>
-                <p>{candidate?.party_full}</p>
-                <p>{candidate?.incumbent_challenge_full}</p>
-            </div>
-            </div>
-
-            {/* MIDDLE -- funding */}
-            <div className="card">
-            <h3 style={{ marginBottom: "12px" }}>Campaign Funding</h3>
-            <p>Raised: --</p>
-            <p>Spent: --</p>
-            <div style={{ marginTop: "16px" }}>
-                <p style={{ marginBottom: "8px", fontWeight: 600 }}>Funding Sources</p>
-                <p>Individual donations: --%</p>
-                <p>PAC money: --%</p>
-                <p>Self-funded: --%</p>
-            </div>
-            </div>
-
-            {/* RIGHT -- top issues */}
-            <div className="card">
-            <h3 style={{ marginBottom: "12px" }}>Top Issues</h3>
-            <p>-- Coming soon --</p>
-            <p>-- Coming soon --</p>
-            <p>-- Coming soon --</p>
-            </div>
-
+        {/* NAME + PARTY */}
+        <div>
+            <h1 className="text-4xl font-bold font-sans">{formatCandidateName(candidate.name)}</h1>
+          <p className="text-gray-500 mt-1">{candidate.party} — {candidate.incumbent_challenge_full}</p>
         </div>
 
-        {/* BOTTOM -- blurb / platform summary */}
-        <div className="card">
-            <h3 style={{ marginBottom: "12px" }}>About</h3>
-            <p>Platform summary coming soon -- will be populated from news API and LLM analysis.</p>
+        {/* TOP ROW -- three columns: funding, top issues, committees */}
+        <div className="grid grid-cols-3 gap-6 w-full">
+
+          {/* LEFT -- campaign funding breakdown */}
+          <div className="border border-gray-300 rounded-md p-4">
+            <h3 className="font-sans font-bold text-lg mb-3">Campaign Funding</h3>
+            <p>Raised: <strong>{formatMoney(candidate.total_receipts)}</strong></p>
+            <p>Spent: <strong>{formatMoney(candidate.total_disbursements)}</strong></p>
+            <p>Cash on hand: <strong>{formatMoney(candidate.cash_on_hand)}</strong></p>
+
+            {/* Progress bar showing what fraction of raised money has been spent */}
+            {candidate.total_receipts > 0 && (
+              <div className="mt-3 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-stone-800 rounded-full transition-all"
+                  style={{ width: pct(candidate.total_disbursements, candidate.total_receipts) }}
+                />
+              </div>
+            )}
+            <p className="text-xs text-gray-400 mt-1">
+              {pct(candidate.total_disbursements, candidate.total_receipts)} of raised funds spent
+            </p>
+          </div>
+
+          {/* MIDDLE -- top issues populated by LLM via Tavily in /api/[district] route */}
+          <div className="border border-gray-300 rounded-md p-4">
+            <h3 className="font-sans font-bold text-lg mb-3">Top Issues</h3>
+            {candidate.top_issues.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {candidate.top_issues.map((issue, i) => (
+                  <span
+                    key={i}
+                    className="bg-stone-100 text-stone-700 text-sm px-2 py-1 rounded-md"
+                  >
+                    {issue}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p className="text-gray-400 text-sm">No issues data available.</p>
+            )}
+          </div>
+
+          {/* RIGHT -- associated committees from FEC data */}
+          <div className="border border-gray-300 rounded-md p-4">
+            <h3 className="font-sans font-bold text-lg mb-3">Associated Committees</h3>
+            {candidate.committees.length > 0 ? (
+              candidate.committees.map((committee, i) => (
+                <p key={i} className="text-sm text-gray-600">{committee}</p>
+              ))
+            ) : (
+              <p className="text-gray-400 text-sm">No committee data available.</p>
+            )}
+          </div>
         </div>
 
-        {/* NEWS SECTION */}
-        <div style={{ marginTop: "24px" }}>
-            <h2>Recent News</h2>
-            <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-            <div className="card">
-                <p style={{ color: "var(--text-muted)" }}>News articles coming soon</p>
-            </div>
-            </div>
+        {/* BOTTOM -- platform positions populated by LLM via Tavily */}
+        <div className="border border-gray-300 rounded-md p-4 w-full">
+          <h3 className="font-sans font-bold text-lg mb-3">Platform & Positions</h3>
+          {candidate.positions.length > 0 ? (
+            <ul className="flex flex-col gap-2">
+              {candidate.positions.map((position, i) => (
+                <li key={i} className="flex gap-2 text-sm">
+                  <span className="text-stone-400 mt-0.5">•</span>
+                  <span>{position}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-gray-400 text-sm">No platform data available.</p>
+          )}
         </div>
 
-        </div>
-    )
+      </div>
+    </>
+  )
 }
 
 export default function Candidate() {
-    return (
-        <Suspense fallback={<p style={{ textAlign: "center", marginTop: "48px" }}>Loading...</p>}>
-            <CandidateContent />
-        </Suspense>
-    )
+  return (
+    // Suspense required by Next.js App Router when using useSearchParams()
+    <Suspense fallback={<p className="text-center mt-12">Loading...</p>}>
+      <CandidateContent />
+    </Suspense>
+  )
 }

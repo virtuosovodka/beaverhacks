@@ -110,7 +110,7 @@ function ElectionContent() {
           {/*check for if there actually is little man running*/}
           {senateCandidates.length > 0 ? (
             senateCandidates.map((c, i) => (
-              <CandidateCard key={i} candidate={c} onClick={() => router.push(`/candidate?id=${c.candidate_id}`)} />
+            <CandidateCard key={i} candidate={c} onClick={() => router.push(`/candidate?data=${encodeURIComponent(JSON.stringify(c))}`)} />
             ))
           ) : (
             <p className="text-gray-400 text-sm">No candidates found for this state.</p>
@@ -121,7 +121,7 @@ function ElectionContent() {
           <h2 className="text-3xl font-bold font-sans">U.S. House of Representatives</h2><button onClick={() => startQuiz(houseCandidates)} className="ml-4 text-sm font-sans text-gray-500 hover:text-gray-700 transition-colors">Take the Quiz</button>
           {houseCandidates.length > 0 ? (
             houseCandidates.map((c, i) => (
-              <CandidateCard key={i} candidate={c} onClick={() => router.push(`/candidate?id=${c.candidate_id}`)} />
+                <CandidateCard key={i} candidate={c} onClick={() => router.push(`/candidate?data=${encodeURIComponent(JSON.stringify(c))}`)} />
             ))
           ) : (
             <p className="text-gray-400 text-sm">No candidates found for this district.</p>
@@ -147,7 +147,8 @@ function CandidateCard({ candidate, onClick }: { candidate: Candidate, onClick?:
       className="cursor-pointer flex w-full flex-row items-center gap-4 p-4 border border-gray-300 rounded-md hover:bg-stone-300 transition-colors"
       onClick={onClick}
     >
-      <h3 className="font-sans text-md font-bold">{formatCandidateName(candidate.name)}</h3>
+    <h3 className="font-sans text-md font-bold">{formatCandidateName(candidate.name)}</h3>
+
       <p>{candidate.top_issues.join(", ")}</p>
     </div>
   )
