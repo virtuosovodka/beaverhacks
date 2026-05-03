@@ -29,9 +29,7 @@ function ElectionContent() {
   useEffect(() => {
     async function fetchData() {
       try {
-        const divRes = await fetch(
-          `https://www.googleapis.com/civicinfo/v2/divisionsByAddress?address=${encodeURIComponent(address ?? "")}&key=${process.env.NEXT_PUBLIC_GOOGLE_CIVIC_API_KEY}`
-        )
+        const divRes = await fetch(`/api/divisions?address=${encodeURIComponent(address ?? "")}`)
         const divData = await divRes.json()
 
         const state = divData.normalizedInput.state
