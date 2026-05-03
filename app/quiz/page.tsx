@@ -217,14 +217,15 @@ export default function Quiz() {
                 key={index} 
                 onClick={() => handleAnswer(option)}
                 style={{ 
-                  padding: '1.2rem', 
-                  fontSize: '1rem', 
-                  textAlign: 'left', 
-                  backgroundColor: 'white', 
-                  border: '2px solid #e0e0e0', 
-                  borderRadius: '8px', 
-                  cursor: 'pointer',
-                  transition: 'all 0.2s ease'
+                    padding: '1.2rem', 
+                    fontSize: '1rem', 
+                    textAlign: 'left', 
+                    backgroundColor: 'white', 
+                    border: '2px solid #e0e0e0', 
+                    borderRadius: '8px', 
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    color: 'black'
                 }}
                 onMouseOver={(e) => (e.currentTarget.style.borderColor = '#007BFF')}
                 onMouseOut={(e) => (e.currentTarget.style.borderColor = '#e0e0e0')}
