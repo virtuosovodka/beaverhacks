@@ -45,9 +45,10 @@ export default function Home() {
           componentRestrictions: { country: "us" }, // only us
           types: ["address"],                       // street addy
         })
+        placeAutocomplete.placeholder = "Enter your address..."
 
-        containerRef.current.appendChild(placeAutocomplete)
-        elementRef.current = placeAutocomplete
+        containerRef.current.appendChild(placeAutocomplete);
+        elementRef.current = placeAutocomplete;
         console.log("autocomplete appended:", containerRef.current.innerHTML)
 
         // user picks suggestion, integrate it into react state
@@ -114,6 +115,13 @@ export default function Home() {
       <div className="flex flex-col flex-1 items-center justify-center font-serif">
         <h1 className="text-4xl font-sans font-bold">Understand what's on your ballot.</h1>
 
+        {/* Container where PlaceAutocompleteElement gets injected by useEffect */} 
+        <div
+          ref={containerRef}
+          onKeyDown={handleKeyDown}
+          className="w-full max-w-lg m-8"
+        ></div>
+
         <ComposableMap
           projection="geoMercator"
           projectionConfig={{
@@ -138,22 +146,13 @@ export default function Home() {
           </Geographies>
         </ComposableMap>
 
-        <div className="flex flex-col">
-          {/* Container where PlaceAutocompleteElement gets injected by useEffect */}
-          <div
-            ref={containerRef}
-            onKeyDown={handleKeyDown}
-            className="w-full max-w-md mt-4"
-          ></div>
-
-          <button
-            onClick={handleSubmit}
-            className="bg-stone-800 font-sans text-zinc-200 px-4 py-2 rounded-md mt-4"
-          >
-            Get My Ballot
-          </button>
-          {error && <p className="text-red-500 mt-2">{error}</p>}
-        </div>
+        <button
+          onClick={handleSubmit}
+          className="bg-stone-800 font-sans text-zinc-200 px-4 py-2 rounded-md mt-2"
+        >
+          Get My Ballot
+        </button>
+        {error && <p className="text-red-500 mt-2">{error}</p>}
       </div>
     </>
   )

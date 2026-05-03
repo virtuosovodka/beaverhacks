@@ -19,6 +19,8 @@ body {
 }
 
 gmp-place-autocomplete {
-  width: 100%;
   display: block;
+  background-color: oklch(86.9% 0.005 56.366);
+  font-family: var(--font-serif);
+  color: var(--foreground);
 }
