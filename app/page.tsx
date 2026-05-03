@@ -221,9 +221,13 @@ export default function Home() {
                       stroke="#ffffff"
                       strokeWidth={0.8}
                       style={{
-                        default: { outline: "none" },
-                        hover:   { outline: "none", opacity: 0.85 },
+                        default: { outline: "none", cursor: "pointer" },
+                        hover:   { outline: "none", cursor: "pointer", opacity: 0.75 },
                         pressed: { outline: "none" },
+                      }}
+                      onClick={() => {
+                        const geoid = (geo.properties as any).GEOID20 as string
+                        router.push(`/election?district=${encodeURIComponent(geoid)}`)
                       }}
                     />
                   ))
