@@ -76,7 +76,7 @@ export default function Home() {
   const [error,        setError]        = useState("")
   const [selectedFips, setSelectedFips] = useState<string | null>(null)
   const [selectedName, setSelectedName] = useState<string | null>(null)
-  const [zoomCfg,      setZoomCfg]      = useState({ zoom: 1, center: [-96, 38] as [number,number] })
+  const [zoomCfg,      setZoomCfg]      = useState({ zoom: 5, center: [-96, 38] as [number,number] })
   const [hoveredFips,  setHoveredFips]  = useState<string | null>(null)
   const [locked,       setLocked]       = useState(false)
 
@@ -141,7 +141,7 @@ export default function Home() {
     setLocked(true)
     setSelectedFips(null)
     setSelectedName(null)
-    setZoomCfg({ zoom: 1, center: [-96, 38] })
+    setZoomCfg({ zoom: 5, center: [-96, 38] })
     setTimeout(() => setLocked(false), 500)
   }, [locked])
 
