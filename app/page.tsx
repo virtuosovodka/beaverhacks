@@ -3,6 +3,9 @@
 import { useState } from "react"
 import { useRouter} from "next/navigation"
 import Image from "next/image";
+import { ComposableMap, Geographies, Geography, createCoordinates } from "@vnedyalk0v/react19-simple-maps";
+import { validateGeographyData, validateGeographyUrl } from "@vnedyalk0v/react19-simple-maps/utils";
+import geoData from "../public/us-districts.json";
 
 export default function Home() {
   // objects for address, error, and navigation tool 
@@ -10,9 +13,13 @@ export default function Home() {
   const [error, setError] = useState("")
   const router = useRouter()
 
+  function validateAddress(address: string) : boolean {
+    return address.length > 10 && address.includes(",");
+  }
+
   //checks if address is long enough and has a comma 
   function handleSubmit() {
-    if (address.length > 10 && address.includes(",")) {
+    if (validateAddress(address)) {
       setError("")
       router.push(`/election?address=${encodeURIComponent(address)}`)
     } else {
@@ -20,24 +27,47 @@ export default function Home() {
     }
   }
 
-  //return the validation 
   return (
-    <div style={{ textAlign: "center", minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "16px" }}>
-      <h1>Know Before You Vote</h1>
-      <div style={{ display: "flex", gap: "8px" }}>
-        <input
-          placeholder="e.g. 123 Main St, Portland, OR 97201"
-          value={address}
-          onChange={(e) => {
-            setAddress(e.target.value)
-            setError("")
-          }}
-        />
-        <button onClick={handleSubmit}>Go</button>
+    <>
+      <div className="flex flex-col items-center justify-center font-serif p-4">
+        <h1 className="text-3xl font-bold">Infolection</h1>
       </div>
-      {error && <p style={{ color: "var(--accent)" }}>{error}</p>}
-    </div>
+      <div className="flex flex-col flex-1 items-center justify-center font-serif">
+        <h1 className="text-4xl">Understand what's on your ballot.</h1>
+        <ComposableMap 
+          projection="geoMercator"
+          projectionConfig={{
+            scale: 250,
+            center: createCoordinates(-96, 38),
+          }}
+          width={500}
+          height={150}
+        >
+          <Geographies geography={geoData}>
+            {({ geographies }) =>
+              geographies.map((geo, i) => (
+                <Geography
+                  key={i}
+                  geography={geo}
+                  fill="#EAEAEC"
+                  stroke="#000000"
+                  strokeWidth={0.25}
+                />
+              ))
+            }
+          </Geographies>
+        </ComposableMap>
+        <input type="text" 
+          placeholder="Enter your address..."
+          value={address}
+          onChange={(e) => setAddress(e.target.value)}
+          className="border border-gray-300 rounded-md p-2 mt-4 w-full max-w-md outline-none focus:ring-2 focus:ring-stone-800"
+        />
+        <button onClick={handleSubmit} className="bg-stone-800 text-zinc-200 px-4 py-2 rounded-md mt-4">
+          Get My Ballot
+        </button>
+        {error && <p className="text-red-500 mt-2">{error}</p>}
+      </div>
+    </>
   )
-
-
 }
