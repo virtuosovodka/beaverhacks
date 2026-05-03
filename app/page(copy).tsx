@@ -1,169 +1,266 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { useRouter } from "next/navigation"
-import { 
-  ComposableMap, 
-  Geographies, 
-  Geography, 
-  ZoomableGroup,
-  createCoordinates 
-} from "@vnedyalk0v/react19-simple-maps";
-import { geoCentroid } from "d3-geo"; 
+import {
+  ComposableMap,
+  Geographies,
+  Geography,
+  createCoordinates,
+} from "@vnedyalk0v/react19-simple-maps"
+import { geoPath, geoMercator } from "d3-geo"
+import districtData from "../public/us-districts.json"
+import stateData    from "../public/us-states.json"
+import type { FeatureCollection } from "geojson"
 
-const fipsToState: Record<string, string> = {
-  "01": "Alabama", "02": "Alaska", "04": "Arizona", "05": "Arkansas", "06": "California",
-  "08": "Colorado", "09": "Connecticut", "10": "Delaware", "11": "District of Columbia",
-  "12": "Florida", "13": "Georgia", "15": "Hawaii", "16": "Idaho", "17": "Illinois",
-  "18": "Indiana", "19": "Iowa", "20": "Kansas", "21": "Kentucky", "22": "Louisiana",
-  "23": "Maine", "24": "Maryland", "25": "Massachusetts", "26": "Michigan", "27": "Minnesota",
-  "28": "Mississippi", "29": "Missouri", "30": "Montana", "31": "Nebraska", "32": "Nevada",
-  "33": "New Hampshire", "34": "New Jersey", "35": "New Mexico", "36": "New York",
-  "37": "North Carolina", "38": "North Dakota", "39": "Ohio", "40": "Oklahoma",
-  "41": "Oregon", "42": "Pennsylvania", "44": "Rhode Island", "45": "South Carolina",
-  "46": "South Dakota", "47": "Tennessee", "48": "Texas", "49": "Utah", "50": "Vermont",
-  "51": "Virginia", "53": "Washington", "54": "West Virginia", "55": "Wisconsin", "56": "Wyoming",
-  "72": "Puerto Rico"
-};
+declare global {
+  interface Window { google: any }
+}
 
-const statesGeoUrl = "https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json";
+const DISTRICT_COLORS = [
+  "#4E79A7","#F28E2B","#E15759","#76B7B2","#59A14F",
+  "#EDC948","#B07AA1","#FF9DA7","#9C755F","#BAB0AC",
+]
+
+const MAP_WIDTH  = 800
+const MAP_HEIGHT = 400
+
+// Mirror the ComposableMap default geoMercator at scale=130, center=[-96,38]
+function buildBaseProjection() {
+  return geoMercator()
+    .scale(130)
+    .center([-96, 38])
+    .translate([MAP_WIDTH / 2, MAP_HEIGHT / 2])
+}
+
+function computeZoomForState(stateFips: string) {
+  const features = (districtData as FeatureCollection).features.filter(
+    (f) => (f.properties as any).STATEFP20 === stateFips
+  )
+  if (!features.length) return { zoom: 1, center: [-96, 38] as [number, number] }
+
+  const proj    = buildBaseProjection()
+  const pathGen = geoPath(proj)
+
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+  for (const f of features) {
+    const b = pathGen.bounds(f as any)
+    if (!b) continue
+    minX = Math.min(minX, b[0][0]); minY = Math.min(minY, b[0][1])
+    maxX = Math.max(maxX, b[1][0]); maxY = Math.max(maxY, b[1][1])
+  }
+
+  const cx = (minX + maxX) / 2
+  const cy = (minY + maxY) / 2
+  const [lon, lat] = proj.invert!([cx, cy]) as [number, number]
+
+  const scaleX = (MAP_WIDTH  * 0.75) / (maxX - minX)
+  const scaleY = (MAP_HEIGHT * 0.75) / (maxY - minY)
+
+  return { zoom: Math.min(scaleX, scaleY), center: [lon, lat] as [number, number] }
+}
 
 export default function Home() {
-  // --- STATE VARIABLES ---
-  const [address, setAddress] = useState("");
-  const [error, setError] = useState("");
-  const router = useRouter();
+  const [address,      setAddress]      = useState("")
+  const [error,        setError]        = useState("")
+  const [selectedFips, setSelectedFips] = useState<string | null>(null)
+  const [selectedName, setSelectedName] = useState<string | null>(null)
+  const [zoomCfg,      setZoomCfg]      = useState({ zoom: 1, center: [-96, 38] as [number,number] })
+  const [hoveredFips,  setHoveredFips]  = useState<string | null>(null)
+  const [locked,       setLocked]       = useState(false)
 
-  const [position, setPosition] = useState({ coordinates: [-96, 38], zoom: 1 });
-  const [selectedState, setSelectedState] = useState<string | null>(null);
-  const [selectedDistrict, setSelectedDistrict] = useState<string | null>(null);
+  const router       = useRouter()
+  const containerRef = useRef<HTMLDivElement>(null)
+  const addressRef   = useRef("")
+  const initedRef    = useRef(false)
 
-  // --- HANDLERS ---
-  function validateAddress(addr: string) : boolean {
-    return addr.length > 10 && addr.includes(",");
-  }
+  // ── Google Places ─────────────────────────────────────────────────────────
+  useEffect(() => {
+    async function initPlaces() {
+      if (initedRef.current) return
+      initedRef.current = true
+      try {
+        if (!(window as any).google?.maps?.importLibrary) { initedRef.current = false; return }
+        const { PlaceAutocompleteElement } = await (window as any).google.maps.importLibrary("places")
+        if (!containerRef.current) return
+        const el = new PlaceAutocompleteElement({ componentRestrictions: { country: "us" }, types: ["address"] })
+        el.placeholder = "Enter your address..."
+        containerRef.current.appendChild(el)
+        el.addEventListener("gmp-select", async (e: any) => {
+          const place = e.placePrediction.toPlace()
+          await place.fetchFields({ fields: ["formattedAddress"] })
+          const fmt = place.formattedAddress
+          if (fmt) { addressRef.current = fmt; setAddress(fmt); setError("") }
+        })
+      } catch (err) { console.error(err); initedRef.current = false }
+    }
 
-  // This is the function TypeScript couldn't find
+    if (!document.getElementById("google-places-script")) {
+      const s = document.createElement("script")
+      s.id = "google-places-script"
+      s.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_PLACES_API_KEY}&loading=async`
+      s.async = true; s.defer = true
+      document.head.appendChild(s)
+    }
+    const iv = setInterval(async () => {
+      if ((window as any).google?.maps?.importLibrary && containerRef.current) {
+        clearInterval(iv); await initPlaces()
+      }
+    }, 100)
+    return () => clearInterval(iv)
+  }, [])
+
   function handleSubmit() {
-    if (validateAddress(address)) {
-      setError("");
-      router.push(`/election?address=${encodeURIComponent(address)}`);
-    } else {
-      setError("Please enter your full address...");
-    }
+    setTimeout(() => {
+      if (addressRef.current.trim()) { setError(""); router.push(`/election?address=${encodeURIComponent(addressRef.current)}`) }
+      else setError("Please select an address from the suggestions.")
+    }, 100)
   }
 
-  const handleStateClick = (geo: any) => {
-    const centroid = geoCentroid(geo);
-    const stateName = geo.properties?.name; 
+  // ── Map interaction ───────────────────────────────────────────────────────
+  const zoomToState = useCallback((fips: string, name: string) => {
+    if (locked) return
+    setLocked(true)
+    setSelectedFips(fips)
+    setSelectedName(name)
+    setZoomCfg(computeZoomForState(fips))
+    setTimeout(() => setLocked(false), 500)
+  }, [locked])
 
-    if (selectedState === stateName) {
-      setSelectedState(null);
-      setPosition({ coordinates: [-96, 38], zoom: 1 });
-    } else {
-      setSelectedState(stateName);
-      // Zoom level 6.0 makes the state much bigger on screen
-      setPosition({ coordinates: [centroid[0], centroid[1]], zoom: 6.0 }); 
-    }
-  };
+  const zoomOut = useCallback(() => {
+    if (locked) return
+    setLocked(true)
+    setSelectedFips(null)
+    setSelectedName(null)
+    setZoomCfg({ zoom: 1, center: [-96, 38] })
+    setTimeout(() => setLocked(false), 500)
+  }, [locked])
 
-  const handleDistrictClick = (geo: any) => {
-    const districtName = geo.properties?.NAMELSAD || geo.properties?.name || "Selected District";
-    setSelectedDistrict(districtName);
-  };
+  // ── Derived ───────────────────────────────────────────────────────────────
+  const stateDistricts = selectedFips
+    ? (districtData as FeatureCollection).features.filter(
+        (f) => (f.properties as any).STATEFP20 === selectedFips
+      )
+    : []
+
+  const projCfg = {
+    scale:  130 * zoomCfg.zoom,
+    center: createCoordinates(zoomCfg.center[0], zoomCfg.center[1]),
+  }
 
   return (
-    <div className="flex flex-col items-center min-h-screen">
-      <div className="p-8 text-center">
+    <>
+      <div className="flex flex-col items-center justify-center font-sans p-4">
         <h1 className="text-3xl font-bold">Infolection</h1>
-        <h2 className="text-4xl font-bold mt-4 font-sans">Understand what's on your ballot.</h2>
       </div>
-      
-      <div className="w-full max-w-4xl px-4 relative">
-        <div className="border border-gray-200 rounded-2xl overflow-hidden shadow-xl bg-white aspect-[2/1]">
-          <ComposableMap projection="geoAlbersUsa" style={{ width: "100%", height: "100%", outline: "none" }}>
-            <ZoomableGroup 
-              zoom={position.zoom} 
-              center={createCoordinates(position.coordinates[0], position.coordinates[1])} 
-              className="transition-all duration-700 ease-in-out"
-            >
-              <Geographies geography={statesGeoUrl}>
+
+      <div className="flex flex-col flex-1 items-center justify-center font-serif">
+        <h1 className="text-4xl font-sans font-bold">Understand what&apos;s on your ballot.</h1>
+
+        <div ref={containerRef} onKeyDown={(e) => e.key === "Enter" && handleSubmit()} className="w-full max-w-lg m-8" />
+
+        {/* Toolbar */}
+        <div className="flex items-center gap-3 mb-1 h-8 font-sans text-sm">
+          {selectedFips ? (
+            <>
+              <button onClick={zoomOut} className="px-3 py-1 rounded bg-stone-200 hover:bg-stone-300 transition-colors">
+                ← All States
+              </button>
+              <span className="text-stone-600">
+                <strong>{selectedName}</strong> — {stateDistricts.length} Congressional District{stateDistricts.length !== 1 ? "s" : ""}
+              </span>
+            </>
+          ) : (
+            <span className="text-stone-400 text-xs">Click a state to see its congressional districts</span>
+          )}
+        </div>
+
+        {/* Map container */}
+        <div style={{ width: MAP_WIDTH, maxWidth: "100%", position: "relative" }}>
+          <ComposableMap
+            projection="geoMercator"
+            projectionConfig={projCfg}
+            width={MAP_WIDTH}
+            height={MAP_HEIGHT}
+            style={{ transition: "all 0.45s cubic-bezier(0.4,0,0.2,1)" }}
+          >
+            {/* ── ZOOMED OUT: render merged state shapes ── */}
+            {!selectedFips && (
+              <Geographies geography={stateData as any}>
                 {({ geographies }) =>
                   geographies.map((geo, i) => {
-                    const isFaded = selectedState && selectedState !== geo.properties?.name;
+                    const fips = (geo.properties as any).STATEFP20 as string
+                    const name = (geo.properties as any).name as string
+                    const isHov = fips === hoveredFips
                     return (
                       <Geography
-                        key={`state-${i}`}
+                        key={(geo as any).rsmKey ?? i}
                         geography={geo}
-                        onClick={() => handleStateClick(geo)}
+                        fill={isHov ? "#A8B4C8" : "#EAEAEC"}
+                        stroke="#000000"
+                        strokeWidth={0.4}
                         style={{
-                          default: { outline: "none", fill: isFaded ? "#F5F5F5" : "#EAEAEC", stroke: "#D1D1D1", strokeWidth: 0.5 },
-                          hover: { outline: "none", fill: "#93c5fd", stroke: "#FFFFFF" },
-                          pressed: { outline: "none", fill: "#2563eb", stroke: "#FFFFFF" }
+                          default: { outline: "none", cursor: "pointer", transition: "fill 0.15s" },
+                          hover:   { outline: "none", cursor: "pointer", fill: "#A8B4C8" },
+                          pressed: { outline: "none" },
                         }}
+                        onClick={() => zoomToState(fips, name)}
+                        onMouseEnter={() => setHoveredFips(fips)}
+                        onMouseLeave={() => setHoveredFips(null)}
                       />
-                    );
+                    )
                   })
                 }
               </Geographies>
+            )}
 
-              {selectedState && (
-                <Geographies geography="/us-districts.json">
-                  {({ geographies }) =>
-                    geographies
-                      .filter((geo) => fipsToState[geo.properties?.STATEFP] === selectedState)
-                      .map((geo, i) => {
-                        const dName = geo.properties?.NAMELSAD || geo.properties?.name;
-                        const isSelected = selectedDistrict === dName;
-                        return (
-                          <Geography
-                            key={`district-${i}`}
-                            geography={geo}
-                            onClick={() => handleDistrictClick(geo)}
-                            style={{
-                              default: { outline: "none", fill: isSelected ? "#2563eb" : "rgba(59, 130, 246, 0.1)", stroke: "#3b82f6", strokeWidth: 0.2 },
-                              hover: { outline: "none", fill: "rgba(59, 130, 246, 0.4)" },
-                              pressed: { outline: "none", fill: "#1d4ed8" }
-                            }}
-                          />
-                        );
-                      })
-                  }
-                </Geographies>
-              )}
-            </ZoomableGroup>
+            {/* ── ZOOMED IN: render individual districts ── */}
+            {selectedFips && (
+              <Geographies geography={districtData as any}>
+                {({ geographies }) => {
+                  const visible = geographies.filter(
+                    (g) => (g.properties as any).STATEFP20 === selectedFips
+                  )
+                  return visible.map((geo, i) => (
+                    <Geography
+                      key={(geo as any).rsmKey ?? i}
+                      geography={geo}
+                      fill={DISTRICT_COLORS[i % DISTRICT_COLORS.length]}
+                      stroke="#ffffff"
+                      strokeWidth={0.8}
+                      style={{
+                        default: { outline: "none" },
+                        hover:   { outline: "none", opacity: 0.85 },
+                        pressed: { outline: "none" },
+                      }}
+                    />
+                  ))
+                }}
+              </Geographies>
+            )}
           </ComposableMap>
         </div>
 
-        {/* Selected Info Popup */}
-        {selectedDistrict && (
-          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 w-full max-w-sm bg-white p-4 rounded-xl shadow-2xl border flex justify-between items-center z-50">
-             <div className="font-sans">
-                <p className="font-bold">{selectedDistrict}</p>
-                <p className="text-xs text-gray-500">View your candidates</p>
-             </div>
-             <button onClick={() => router.push(`/election?district=${selectedDistrict}`)} className="bg-black text-white px-4 py-2 rounded-lg text-sm font-bold">
-               Go →
-             </button>
+        {/* District legend */}
+        {selectedFips && stateDistricts.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 max-w-2xl justify-center">
+            {stateDistricts.map((f, i) => (
+              <div key={i} className="flex items-center gap-1 font-sans text-xs">
+                <span style={{
+                  display: "inline-block", width: 10, height: 10, borderRadius: 2, flexShrink: 0,
+                  backgroundColor: DISTRICT_COLORS[i % DISTRICT_COLORS.length],
+                }} />
+                <span className="text-stone-700">{(f.properties as any).NAMELSAD20}</span>
+              </div>
+            ))}
           </div>
         )}
-      </div>
 
-      {/* Address Input Section */}
-      <div className="mt-12 w-full max-w-md px-4 pb-20">
-        <p className="text-center text-gray-400 font-bold mb-4 font-sans">OR USE YOUR ADDRESS</p>
-        <input 
-          type="text" 
-          placeholder="Enter full address..." 
-          value={address}
-          onChange={(e) => setAddress(e.target.value)}
-          className="w-full border-2 border-gray-100 rounded-xl p-4 focus:border-black outline-none transition-all"
-        />
-        <button onClick={handleSubmit} className="w-full bg-black text-white p-4 rounded-xl mt-4 font-bold font-sans">
+        <button onClick={handleSubmit} className="bg-stone-800 font-sans text-zinc-200 px-4 py-2 rounded-md mt-6">
           Get My Ballot
         </button>
-        {error && <p className="text-red-500 text-center mt-2 font-bold font-sans">{error}</p>}
+        {error && <p className="text-red-500 mt-2">{error}</p>}
       </div>
-    </div>
-  );
+    </>
+  )
 }
