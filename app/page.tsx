@@ -32,6 +32,18 @@ function buildBaseProjection() {
     .translate([MAP_WIDTH / 2, MAP_HEIGHT / 2])
 }
 
+const FIPS_TO_ABBR: Record<string, string> = {
+  "01":"AL","02":"AK","04":"AZ","05":"AR","06":"CA","08":"CO","09":"CT",
+  "10":"DE","11":"DC","12":"FL","13":"GA","15":"HI","16":"ID","17":"IL",
+  "18":"IN","19":"IA","20":"KS","21":"KY","22":"LA","23":"ME","24":"MD",
+  "25":"MA","26":"MI","27":"MN","28":"MS","29":"MO","30":"MT","31":"NE",
+  "32":"NV","33":"NH","34":"NJ","35":"NM","36":"NY","37":"NC","38":"ND",
+  "39":"OH","40":"OK","41":"OR","42":"PA","44":"RI","45":"SC","46":"SD",
+  "47":"TN","48":"TX","49":"UT","50":"VT","51":"VA","53":"WA","54":"WV",
+  "55":"WI","56":"WY",
+}
+function stateAbbrFromFips(fips: string) { return FIPS_TO_ABBR[fips] ?? fips }
+
 function computeZoomForState(stateFips: string) {
   const features = (districtData as FeatureCollection).features.filter(
     (f) => (f.properties as any).STATEFP20 === stateFips
@@ -221,9 +233,15 @@ export default function Home() {
                       stroke="#ffffff"
                       strokeWidth={0.8}
                       style={{
-                        default: { outline: "none" },
-                        hover:   { outline: "none", opacity: 0.85 },
+                        default: { outline: "none", cursor: "pointer" },
+                        hover:   { outline: "none", cursor: "pointer", opacity: 0.75 },
                         pressed: { outline: "none" },
+                      }}
+                      onClick={() => {
+                        const props = geo.properties as any
+                        const stateAbbr = stateAbbrFromFips(selectedFips!)
+                        const districtNum = props.CD118FP.padStart(2, "0")
+                        router.push(`/election?district=${stateAbbr}${districtNum}`)
                       }}
                     />
                   ))
