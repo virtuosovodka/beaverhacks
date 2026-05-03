@@ -183,8 +183,10 @@ export default function Quiz() {
       if (!response.ok) throw new Error(`API error: ${response.status}`);
       
       const jsonResponse = await response.json();
+      console.log("API response:", JSON.stringify(jsonResponse));
       const content = jsonResponse.choices[0].message.content;
       const clean = content.replace(/```json|```/g, '').trim();
+      console.log("Cleaned content:", clean);
       const parsedData: Results = JSON.parse(clean);
       
       setResults(parsedData);
