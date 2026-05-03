@@ -54,6 +54,14 @@ function Election({ address }) {
 
         if (address) {
             fetchData()
+        } 
+        setHouseCandidates(houseData.results)
+        setSenateCandidates(senateData.results)
+
+        if (houseData.results.length === 0 && senateData.results.length === 0) {
+            setError("No candidates found for your address. Try including your full city and state.")
+            setLoading(false)
+            return
         }
     }, [address])
 
