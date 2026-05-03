@@ -51,7 +51,7 @@ function CandidateContent() {
     <>
       {/* HEADER -- matches election page header style */}
       <div className="flex flex-col items-center justify-center font-sans p-8 w-full">
-        <button onClick={() => router.push("/")} className="text-3xl font-bold">Infolection</button>
+        <button onClick={() => router.push("/")} className="text-3xl font-bold">Electable</button>
       </div>
 
       <div className="flex flex-col items-start justify-start font-serif p-4 pr-32 pl-32 gap-6">

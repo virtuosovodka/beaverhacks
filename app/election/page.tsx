@@ -65,7 +65,7 @@ function LoadingScreen() {
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen gap-8 px-8">
-      <button className="text-3xl font-bold font-sans">Infolection</button>
+      <button className="text-3xl font-bold font-sans">Electable</button>
 
       <div className="flex flex-col items-center gap-4 max-w-md w-full">
         <p className="font-sans font-medium text-lg">Loading your ballot...</p>
