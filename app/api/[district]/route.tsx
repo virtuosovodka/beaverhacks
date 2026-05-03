@@ -18,11 +18,16 @@ export async function GET(
     // Fetch election data from FEC API for the district, both for House and Senate
     const houseData = await getCachedRequest(`https://api.open.fec.gov/v1/elections/?state=${state}&district=${districtNumber}&cycle=${electionCycle}&office=house`);
     const senateData = await getCachedRequest(`https://api.open.fec.gov/v1/elections/?state=${state}&cycle=${electionCycle}&office=senate`);
+    
+
+    const houseNormalized = Array.isArray(houseData) ? houseData[0] : houseData;
+    const senateNormalized = Array.isArray(senateData) ? senateData[0] : senateData;
+    
     console.log('House data:', houseData);
     console.log('Senate data:', senateData);
 
     // Build present committees list
-    const committees = getPresentCommittees(houseData, senateData);
+    const committees = getPresentCommittees(houseNormalized, senateNormalized);
     console.log('Present committees:', committees);
 
     // Fetch committee data from FEC for all committees referenced
@@ -30,7 +35,7 @@ export async function GET(
     console.log('Committee data:', committeeData);
 
     // Build candidates list
-    const candidates = getCandidates(houseData, senateData);
+    const candidates = getCandidates(houseNormalized, senateNormalized);
     console.log('Candidates:', candidates);
 
     // Get news data + platform data for all candidates from news API and LLM api
@@ -38,7 +43,7 @@ export async function GET(
     console.log('Candidate platform info:', candidateData);
 
     // Finish result object and return it as JSON
-    const result = getFormattedResult(houseData, senateData, committeeData, candidateData);
+    const result = getFormattedResult(houseNormalized, senateNormalized, committeeData, candidateData);
 
     return Response.json(result);
 }
@@ -91,10 +96,14 @@ function getFormattedResult(houseData: any, senateData: any, committeeData: any[
     - platform data about the candidate
     */
 
-    if (houseData && houseData[0].results) {
-        houseData[0].results.forEach((candidate: any) => {
+    if (houseData && houseData.results) {
+        houseData.results.forEach((candidate: any) => {
             const candidateCommittees = committeeData.filter(committee => candidate['committee_ids'] && candidate['committee_ids'].includes(committee['committee_id'])).map(committee => committee['name']);
-            const candidateDataEntry = candidateData.find(entry => entry[0].candidateId === candidate['candidate_id'])[0];
+            const raw = candidateData.find(entry => {
+            const item = Array.isArray(entry) ? entry[0] : entry;
+            return item.candidateId === candidate['candidate_id'];
+            });
+            const candidateDataEntry = Array.isArray(raw) ? raw[0] : raw;
             console.log(`Candidate ${candidate['candidate_name']} data entry:`, candidateDataEntry);
             const candidatePlatform = sanitizeJSON(candidateDataEntry?.platform.answer || "{}");
             const platformParsed = isValidJSON(candidatePlatform) ? JSON.parse(candidatePlatform) : {};
@@ -116,8 +125,8 @@ function getFormattedResult(houseData: any, senateData: any, committeeData: any[
         });
     }
 
-    if (senateData && senateData[0].results) {
-        senateData[0].results.forEach((candidate: any) => {
+    if (senateData && senateData.results) {
+        senateData.results.forEach((candidate: any) => {
             const candidateCommittees = committeeData.filter(committee => candidate['committee_ids'] && candidate['committee_ids'].includes(committee['committee_id'])).map(committee => committee['name']);
             const candidateDataEntry = candidateData.find(entry => entry[0].candidateId === candidate['candidate_id'])[0];
             console.log(`Candidate ${candidate['candidate_name']} data entry:`, candidateDataEntry);
@@ -202,14 +211,14 @@ async function getCandidateData(candidates: [string, string][]) {
 function getCandidates(houseData: any, senateData: any) {
     const candidates: [string, string][] = [];
 
-    if (houseData && houseData[0].results) {
-        houseData[0].results.forEach((candidate: any) => {
+    if (houseData && houseData.results) {
+        houseData.results.forEach((candidate: any) => {
             candidates.push([candidate['candidate_id'], candidate['candidate_name']]);
         });
     }
 
-    if (senateData && senateData[0].results) {
-        senateData[0].results.forEach((candidate: any) => {
+    if (senateData && senateData.results) {
+        senateData.results.forEach((candidate: any) => {
             candidates.push([candidate['candidate_id'], candidate['candidate_name']]);
         });
     }
@@ -220,8 +229,8 @@ function getCandidates(houseData: any, senateData: any) {
 function getPresentCommittees(houseData: any, senateData: any) {
     const committees = new Set<string>();
 
-    if (houseData && houseData[0].results) {
-        houseData[0].results.forEach((candidate: any) => {
+    if (houseData && houseData.results) {
+        houseData.results.forEach((candidate: any) => {
             if (candidate['committee_ids']) {
                 candidate['committee_ids'].forEach((committeeId: string) => {
                     committees.add(committeeId);
@@ -230,8 +239,8 @@ function getPresentCommittees(houseData: any, senateData: any) {
         });
     }
 
-    if (senateData && senateData[0].results) {
-        senateData[0].results.forEach((candidate: any) => {
+    if (senateData && senateData.results) {
+        senateData.results.forEach((candidate: any) => {
             if (candidate['committee_ids']) {
                 candidate['committee_ids'].forEach((committeeId: string) => {
                     committees.add(committeeId);

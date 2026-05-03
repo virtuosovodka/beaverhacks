@@ -1,13 +1,14 @@
-type QuizState = {
+export type QuizState = {
     candidatePositions: string[][]
     scores: number[][]
     opportunities: number[][]
     currentQuestion: [[number, number], [number, number]]
     currentAnswer: 1 | 2 | null
+    asked: 0
 }
 
 export function quizNext(state: QuizState, answer: 1 | 2 | null) {
-    if (state.currentAnswer !== null) {
+    if (answer !== null) {
         // Update scores based on the answer
         const [candidate1, candidate2] = state.currentQuestion
         if (answer === 1) {
@@ -27,14 +28,20 @@ export function quizNext(state: QuizState, answer: 1 | 2 | null) {
     const nextIndex2 = getLeastSeenPosition(state, nextCandidate2)
 
     state.currentQuestion = [[nextCandidate1, nextIndex1], [nextCandidate2, nextIndex2]]
-    state.currentAnswer = null
+
+    state.asked += 1
+
+    console.log("Next question:", {
+        candidate1: state.candidatePositions[nextCandidate1][nextIndex1],
+        candidate2: state.candidatePositions[nextCandidate2][nextIndex2]
+    })
 
     return state
 }
 
 function getLeastSeenPair(state: QuizState): [number, number] {
     const candidateTotals = state.opportunities.map((candidate, index) => ({
-        total: candidate.reduce((a, b) => a + b, 0),
+        total: candidate.length > 0 ? candidate.reduce((a, b) => a + b, 0) : 999999,
         index
     })).sort((a, b) => a.total - b.total);
 
@@ -71,7 +78,7 @@ export function quizResults(state: QuizState) {
             .sort((a, b) => b.score - a.score)
 
         return {
-            candidate: candidate[0], // Candidate index
+            candidateIndex: index,
             score: score, // Total score
             topPositions: sortedPositions.slice(0, 3).map((p) => p.position) // Top 3 positions the user agrees with
         };
