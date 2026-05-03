@@ -190,7 +190,7 @@ async function getCandidateData(candidates: [string, string][]) {
             };
             candidateData.push(data);
             await client.json.set(candidateId, '$', data);
-            await client.expire(candidateId, 3600); // Cache for 1 hour
+            await client.expire(candidateId, 360000); // Cache for 100 hours
         }
     } else {
         console.log('Cache hit for all candidate IDs');
@@ -269,7 +269,7 @@ async function getCachedCommitteeData(committeeIds: string[]) {
             for (const committee of data.results) {
                 committeeData.push(committee);
                 await client.json.set(committee['committee_id'], '$', committee);
-                await client.expire(committee['committee_id'], 3600); // Cache for 1 hour
+                await client.expire(committee['committee_id'], 360000); // Cache for 100 hours
             }
         }
     } else {
@@ -303,7 +303,7 @@ async function getCachedRequest(request: string) {
 
     // Cache the response in Redis with an expiration time (e.g., 1 hour).
     await client.json.set(request, '$', data);
-    await client.expire(request, 3600); // Set expiration to 1 hour (3600 seconds).
+    await client.expire(request, 360000); // Set expiration to 100 hours (360000 seconds).
 
     return data;
 }
