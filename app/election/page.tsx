@@ -199,17 +199,15 @@ function ElectionContent() {
 
       {/* state + district label */}
       <div className="flex flex-col items-start justify-start font-serif p-4 pl-16 pr-16">
-        <p className="text-sm text-gray-500 mb-2">
+        <p className="text-sm text-gray-500">
           {divisions?.state} - {divisions?.district} Congressional District
         </p>
       </div>
 
       <div className="flex flex-col items-start justify-start font-serif p-4 pr-32 pl-32">
-
-        {/* senate candidates */}
-        <div className="flex flex-col gap-5 mt-8 w-full">
+        <div className="flex flex-col gap-5 w-full">
           <h2 className="text-3xl font-bold font-sans">U.S. Senate</h2>
-          <button onClick={() => startQuiz(senateCandidates)} className="ml-4 text-sm font-sans text-gray-500 hover:text-gray-700 transition-colors">Take the Quiz</button>
+          {/*check for if there actually is little man running*/}
           {senateCandidates.length > 0 ? (
             senateCandidates.map((c, i) => (
               <CandidateCard key={i} candidate={c} onClick={() => router.push(`/candidate?data=${encodeURIComponent(JSON.stringify(c))}`)} />
@@ -222,7 +220,6 @@ function ElectionContent() {
         {/* house candidates */}
         <div className="flex flex-col gap-5 mt-8 w-full">
           <h2 className="text-3xl font-bold font-sans">U.S. House of Representatives</h2>
-          <button onClick={() => startQuiz(houseCandidates)} className="ml-4 text-sm font-sans text-gray-500 hover:text-gray-700 transition-colors">Take the Quiz</button>
           {houseCandidates.length > 0 ? (
             houseCandidates.map((c, i) => (
               <CandidateCard key={i} candidate={c} onClick={() => router.push(`/candidate?data=${encodeURIComponent(JSON.stringify(c))}`)} />
@@ -245,6 +242,17 @@ export default function Election() {
     <Suspense fallback={<LoadingScreen />}>
       <ElectionContent />
     </Suspense>
+  )
+}
+
+function QuizButton({ onClick } : { onClick?: () => void }) {
+  return (
+    <button 
+      onClick={onClick} 
+      className="ml-4 text-sm font-sans text-gray-500 hover:text-gray-700 transition-colors"
+    >
+      Find your match
+    </button>
   )
 }
 

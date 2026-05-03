@@ -247,7 +247,18 @@ export default function Home() {
           </div>
         )}
 
-        <button onClick={handleSubmit} className="bg-stone-800 font-sans text-zinc-200 px-4 py-2 rounded-md mt-6">
+        <button
+          onClick={handleSubmit}
+          className="bg-stone-800 
+          font-sans 
+          text-zinc-200 
+          px-4 
+          py-2  
+          rounded-md 
+          mt-2 
+          hover:bg-stone-900
+          transition-colors"
+        >
           Get My Ballot
         </button>
         {error && <p className="text-red-500 mt-2">{error}</p>}
