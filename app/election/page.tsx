@@ -86,36 +86,30 @@ function ElectionContent() {
   if (error) return <p style={{ textAlign: "center", marginTop: "48px", color: "var(--accent)" }}>{error}</p>
 
   return (
-    <div className="page">
-      <button onClick={() => router.push("/")} style={{ marginBottom: "24px" }}>
-        ← Back
-      </button>
-
-      <h1>Your Ballot</h1>
-      <p style={{ marginBottom: "32px" }}>
-        {divisions?.state} -- Congressional District {divisions?.district}
-      </p>
-
-      <h2>U.S. Senate</h2>
-      <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginBottom: "32px" }}>
-        {senateCandidates.map((c, i) => (
-          <div key={i} className="card" style={{ cursor: "pointer" }} onClick={() => router.push(`/candidate?id=${c.candidate_id}`)}>
-            <h3>{c.name}</h3>
-            <p>{c.top_issues.join(", ")} -- {c.positions.join(", ")}</p>
-          </div>
-        ))}
+    <>
+      <div className="flex flex-col items-center justify-center font-sans p-8 w-full">
+        <button onClick={() => router.push("/")} className="text-3xl font-bold">Infolection</button>
       </div>
-
-      <h2>U.S. House -- District {divisions?.district}</h2>
-      <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-        {houseCandidates.map((c, i) => (
-          <div key={i} className="card" style={{ cursor: "pointer" }} onClick={() => router.push(`/candidate?id=${c.candidate_id}`)}>
-            <h3>{c.name}</h3>
-            <p>{c.top_issues.join(", ")} -- {c.positions.join(", ")}</p>
-          </div>
-        ))}
+      <div className="flex flex-col items-start justify-start font-serif p-4 pl-16 pr-16">
+        <p className="text-sm text-gray-500 mb-2">
+          {divisions?.state} - {divisions?.district} Congressional District
+        </p>
       </div>
-    </div>
+      <div className="flex flex-col items-start justify-start font-serif p-4 pr-32 pl-32">
+        <div className="flex flex-col gap-5 mt-8 w-full">
+          <h2 className="text-3xl font-bold font-sans">U.S. Senate</h2>
+          {senateCandidates.map((c, i) => (
+            <CandidateCard key={i} candidate={c} onClick={() => router.push(`/candidate?id=${c.candidate_id}`)} />
+          ))}
+        </div>
+        <div className="flex flex-col gap-5 mt-8 w-full">
+          <h2 className="text-3xl font-bold font-sans">U.S. House of Representatives</h2>
+          {houseCandidates.map((c, i) => (
+            <CandidateCard key={i} candidate={c} onClick={() => router.push(`/candidate?id=${c.candidate_id}`)} />
+          ))}
+        </div>
+      </div>
+    </>
   )
 }
 
@@ -124,5 +118,17 @@ export default function Election() {
     <Suspense fallback={<p style={{ textAlign: "center", marginTop: "48px" }}>Loading...</p>}>
       <ElectionContent />
     </Suspense>
+  )
+}
+
+function CandidateCard({candidate, onClick} : {candidate: Candidate, onClick?: () => void}) {
+  return (
+    <div 
+      className="cursor-pointer flex w-full flex-row items-center gap-4 p-4 border border-gray-300 rounded-md hover:bg-stone-300 transition-colors" 
+      onClick={onClick}
+    >
+      <h3 className="font-sans text-md font-bold">{candidate.name}</h3>
+      <p>{candidate.top_issues.join(", ")}</p>
+    </div>
   )
 }

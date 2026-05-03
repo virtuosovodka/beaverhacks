@@ -4,7 +4,6 @@ import { useState } from "react"
 import { useRouter} from "next/navigation"
 import Image from "next/image";
 import { ComposableMap, Geographies, Geography, createCoordinates } from "@vnedyalk0v/react19-simple-maps";
-import { validateGeographyData, validateGeographyUrl } from "@vnedyalk0v/react19-simple-maps/utils";
 import geoData from "../public/us-districts.json";
 
 export default function Home() {

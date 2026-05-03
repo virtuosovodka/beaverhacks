@@ -27,8 +27,7 @@ function CandidateContent() {
         async function fetchCandidate(){
             try {
                 const res = await fetch(
-                              `https://api.open.fec.gov/v1/candidate/${id}/?api_key=${process.env.NEXT_PUBLIC_FEC_API_KEY}`
-
+                    `https://api.open.fec.gov/v1/candidate/${id}/?api_key=${process.env.NEXT_PUBLIC_FEC_API_KEY}`
                 )
                 const data = await res.json()
                 setCandidate(data.results[0])
@@ -45,7 +44,7 @@ function CandidateContent() {
 
     }, [id])
 
-    if (loading) return <p style={{ textAlign: "center", marginTop: "48px" }}>Loading candidate...</p>
+    if (loading) return <p className="text-center mt-48px">Loading candidate...</p>
     if (error) return <p style={{ textAlign: "center", marginTop: "48px", color: "var(--accent)" }}>{error}</p>
 
     return (
