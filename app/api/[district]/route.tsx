@@ -76,7 +76,7 @@ function isValidJSON(str: string) {
     }
 }
 
-function getFormattedResult(houseData: any, senateData: any, committeeData: any[], candidateData: any[]) {
+function getFormattedResult(houseData: any, senateData: any, committeeData: any[], candidateData: Record<string, any>) {
     const result = {
         house: [] as any[],
         senate: [] as any[],
@@ -175,11 +175,8 @@ async function getCandidateData(candidates: [string, string][]) {
 
         const candidatePlatformData: Record<string, any> = {};
 
-        for (const [candidateId, candidateName] of candidates) {
-            if (!missingCandidateIds.includes(candidateId)) {
-                continue; // Skip candidates that are already cached
-            }
-
+        const searchPromises = missingCandidateIds.map(async (candidateId) => {
+            const candidateName = candidates.find(c => c[0] === candidateId)?.[1] || "Unknown Candidate";
             while (!candidatePlatformData[candidateId]) {
                 const platformData = await tavilyClient.search(`Find information on the political platform of ${candidateName}, returning a JSON object with the lists "top_issues" (short keywords) and "positions" (partial sentences, starting with verbs).`, {
                     searchDepth: "basic",
@@ -197,7 +194,33 @@ async function getCandidateData(candidates: [string, string][]) {
                     console.log(`No platform data found for candidate ${candidateName}. Retrying...`);
                 }
             }
-        }
+        });
+
+        await Promise.all(searchPromises);
+
+        // for (const [candidateId, candidateName] of candidates) {
+        //     if (!missingCandidateIds.includes(candidateId)) {
+        //         continue; // Skip candidates that are already cached
+        //     }
+
+        //     while (!candidatePlatformData[candidateId]) {
+        //         const platformData = await tavilyClient.search(`Find information on the political platform of ${candidateName}, returning a JSON object with the lists "top_issues" (short keywords) and "positions" (partial sentences, starting with verbs).`, {
+        //             searchDepth: "basic",
+        //             includeAnswer: "advanced",
+        //         });
+
+        //         if (platformData && platformData.answer) {
+        //             if (isValidJSON(sanitizeJSON(platformData.answer))) {
+        //                 candidatePlatformData[candidateId] = platformData;
+        //             } else {
+        //                 console.log(`Invalid JSON for candidate ${candidateName}. Retrying...`);
+        //             }
+        //         }
+        //         else {
+        //             console.log(`No platform data found for candidate ${candidateName}. Retrying...`);
+        //         }
+        //     }
+        // }
 
         // Cache the candidate data in Redis
         for (const candidateId of missingCandidateIds) {
