@@ -101,28 +101,28 @@ function ElectionContent() {
   const address = searchParams.get("address")
   const router = useRouter()
 
-  const [divisions,        setDivisions]        = useState<Divisions | null>(null)
-  const [houseCandidates,  setHouseCandidates]  = useState<Candidate[]>([])
+  const [divisions, setDivisions] = useState<Divisions | null>(null)
+  const [houseCandidates, setHouseCandidates] = useState<Candidate[]>([])
   const [senateCandidates, setSenateCandidates] = useState<Candidate[]>([])
-  const [quizCandidates,   setQuizCandidates]   = useState<Candidate[]>([])
-  const [quizState,        setQuizState]        = useState(null as any)
-  const [loading,          setLoading]          = useState(true)
-  const [error,            setError]            = useState("")
+  const [quizCandidates, setQuizCandidates] = useState<Candidate[]>([])
+  const [quizState, setQuizState] = useState(null as any)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState("")
 
   useEffect(() => {
     async function fetchData() {
-    try {
+      try {
         // retry up to 3 times in case the route isn't ready on first navigation
         let divData = null
         for (let attempt = 0; attempt < 3; attempt++) {
-        try {
+          try {
             const divRes = await fetch(`/district?address=${encodeURIComponent(address ?? "")}`)
             const json = await divRes.json()
             if (json && json[0]) { divData = json[0]; break }
-        } catch {
+          } catch {
             // wait 500ms before retrying
             await new Promise(r => setTimeout(r, 500))
-        }
+          }
         }
         if (!divData) throw new Error("District lookup failed after retries")
 
@@ -131,11 +131,11 @@ function ElectionContent() {
         // extract district number from ocd-division key e.g. "ocd-division/country:us/state:or/cd:5"
         let district = "00"
         for (const key of Object.keys(divData.divisions)) {
-        const match = key.match(/\/cd:(\d+)/)
-        if (match) {
+          const match = key.match(/\/cd:(\d+)/)
+          if (match) {
             district = match[1].padStart(2, "0")
             break
-        }
+          }
         }
 
         setDivisions({ state, district })
@@ -148,11 +148,11 @@ function ElectionContent() {
         setSenateCandidates(electionData.senate)
 
         setLoading(false)
-    } catch (err) {
+      } catch (err) {
         console.log(err)
         setError("Failed to load election data")
         setLoading(false)
-    }
+      }
     }
     // force a fresh fetch every time the address changes
     if (address) {
@@ -238,9 +238,9 @@ function ElectionContent() {
       </div>
 
       {/* quiz modal — only visible when quizState is set */}
-      <QuizModal 
-        candidates={quizCandidates} 
-        quizState={quizState} 
+      <QuizModal
+        candidates={quizCandidates}
+        quizState={quizState}
         answer={quizUpdateHandler}
         onClose={() => setQuizState(null)}  // ← this resets state which closes the modal
       />
@@ -257,10 +257,10 @@ export default function Election() {
   )
 }
 
-function QuizButton({ onClick } : { onClick?: () => void }) {
+function QuizButton({ onClick }: { onClick?: () => void }) {
   return (
-    <button 
-      onClick={onClick} 
+    <button
+      onClick={onClick}
       className="text-sm font-sans bg-stone-800 text-zinc-200 px-3 py-1.5 rounded-md hover:bg-stone-700 transition-colors"
     >
       Take the quiz to find your match!

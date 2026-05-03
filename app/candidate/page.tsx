@@ -67,7 +67,7 @@ function CandidateContent() {
         {/* NAME + PARTY */}
         <div>
             <h1 className="text-4xl font-bold font-sans">{formatCandidateName(candidate.name)}</h1>
-          <p className="text-gray-500 mt-1">{candidate.party} — {candidate.incumbent_challenge_full}</p>
+          <p className="text-gray-500 mt-1">{candidate.party}</p>
         </div>
 
         {/* TOP ROW -- three columns: funding, top issues, committees */}
