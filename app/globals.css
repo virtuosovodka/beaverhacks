@@ -37,7 +37,3 @@ gmp-place-autocomplete {
   font-family: var(--font-serif);
   color: var(--foreground);
 }
-
-gmp-place-autocomplete input:focus {
-  outline: none;
-}
