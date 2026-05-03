@@ -125,11 +125,11 @@ export default function Quiz() {
   const [error, setError] = useState<string | null>(null);
 
   const handleAnswer = (selectedOption: string) => {
-    const updatedAnswers: Answer[] = [...userAnswers, { 
-      topic: VOTING_QUESTIONS[currentQuestion].question, 
-      stance: selectedOption 
+    const updatedAnswers: Answer[] = [...userAnswers, {
+      topic: VOTING_QUESTIONS[currentQuestion].question,
+      stance: selectedOption
     }];
-    
+
     setUserAnswers(updatedAnswers);
 
     if (currentQuestion + 1 < VOTING_QUESTIONS.length) {
@@ -142,7 +142,7 @@ export default function Quiz() {
 
   const generateResults = async (answersObj: Answer[]) => {
     setLoading(true);
-    
+
     const formattedAnswers = answersObj.map(a => `${a.topic}\nAnswer: ${a.stance}`).join('\n\n');
 
     const promptText = `
@@ -167,11 +167,11 @@ export default function Quiz() {
     try {
       // MAGIC: Just call the server action! No fetch, no URLs, no 405s.
       const jsonResponse = await getPoliticalMatches(promptText);
-      
+
       const content = jsonResponse.choices[0].message.content;
       const clean = content.replace(/```json|```/g, '').trim();
       const parsedData: Results = JSON.parse(clean);
-      
+
       setResults(parsedData);
     } catch (err) {
       setError("Failed to generate your political matches. " + (err as Error).message);
@@ -190,27 +190,27 @@ export default function Quiz() {
 
   return (
     <div style={{ maxWidth: '800px', margin: '2rem auto', padding: '1rem' }}>
-      
+
       {!isFinished && (
         <div style={{ padding: '2rem', backgroundColor: '#f9f9f9', borderRadius: '12px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
           <h4 style={{ color: '#666', marginBottom: '1rem' }}>Question {currentQuestion + 1} of {VOTING_QUESTIONS.length}</h4>
           <h2 style={{ marginBottom: '2rem' }}>{VOTING_QUESTIONS[currentQuestion].question}</h2>
-          
+
           <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1rem' }}>
             {VOTING_QUESTIONS[currentQuestion].options.map((option, index) => (
-              <button 
-                key={index} 
+              <button
+                key={index}
                 onClick={() => handleAnswer(option)}
-                style={{ 
-                    padding: '1.2rem', 
-                    fontSize: '1rem', 
-                    textAlign: 'left', 
-                    backgroundColor: 'white', 
-                    border: '2px solid #e0e0e0', 
-                    borderRadius: '8px', 
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease',
-                    color: 'black'
+                style={{
+                  padding: '1.2rem',
+                  fontSize: '1rem',
+                  textAlign: 'left',
+                  backgroundColor: 'white',
+                  border: '2px solid #e0e0e0',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  color: 'black'
                 }}
                 onMouseOver={(e) => (e.currentTarget.style.borderColor = '#007BFF')}
                 onMouseOut={(e) => (e.currentTarget.style.borderColor = '#e0e0e0')}
@@ -241,7 +241,7 @@ export default function Quiz() {
       {isFinished && results && (
         <div>
           <h1 style={{ textAlign: 'center', marginBottom: '2rem' }}>Your Top 3 Matches</h1>
-          
+
           <div style={{ display: 'grid', gap: '2rem' }}>
             {results.matches.map((match, index) => (
               <div key={index} style={{ padding: '2rem', backgroundColor: '#ffffff', border: '1px solid #ddd', borderRadius: '12px', boxShadow: '0 4px 6px rgba(0,0,0,0.05)' }}>
@@ -252,7 +252,7 @@ export default function Quiz() {
           </div>
 
           <div style={{ textAlign: 'center', marginTop: '3rem' }}>
-            <button 
+            <button
               onClick={restartQuiz}
               style={{ padding: '1rem 2rem', backgroundColor: '#333', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '1.1rem' }}
             >
